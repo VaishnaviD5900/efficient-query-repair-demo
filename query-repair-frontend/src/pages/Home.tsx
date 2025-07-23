@@ -40,7 +40,8 @@ export default function Home() {
   ];
 
   const handleGetStarted = () => {
-    navigate('/editor');
+    // navigate('/editor');
+    navigate('/input');
   };
 
   return (
