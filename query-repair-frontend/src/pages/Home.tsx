@@ -1,4 +1,3 @@
-import React from 'react';
 // Material UI Components
 import {
   Container,
