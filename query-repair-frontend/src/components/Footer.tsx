@@ -6,19 +6,14 @@ const Footer: React.FC = () => {
     <Box
       component="footer"
       sx={{
-        mt: 3,
+        // mt: 3,
         py: 3,
         textAlign: 'center',
-        bgcolor: 'background.paper',
+        bgcolor: 'rgba(214, 214, 227, 0.1)',
       }}
     >
       <Typography variant="body2" color="text.secondary">
-        © {new Date().getFullYear()} Query Repair System. Developed as part of an MSc Computer Science project at University of Southampton
-        {/* {' '}
-        <Link href="https://www.southampton.ac.uk" target="_blank" rel="noopener noreferrer">
-          University of Southampton
-        </Link> */}
-        .
+        © {new Date().getFullYear()} Query Repair System. Developed as part of an MSc Computer Science project at University of Southampton.
       </Typography>
     </Box>
   );

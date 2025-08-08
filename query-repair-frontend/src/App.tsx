@@ -30,9 +30,9 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" />} />
         </Routes>
       </div>
-      <div style={isHomePage ? { position: "absolute", bottom: 0, width: "100%" } : {}}>
+      {/* <div style={isHomePage ? { position: "absolute", bottom: 0, width: "100%" } : {}}> */}
         <Footer />
-      </div>
+      {/* </div> */}
     </div>
   );
 }

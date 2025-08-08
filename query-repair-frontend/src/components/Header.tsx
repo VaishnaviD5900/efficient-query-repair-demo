@@ -3,7 +3,9 @@ import { AppBar, Toolbar, Typography, IconButton, Box } from '@mui/material';
 
 export default function Header() {
   return (
-    <AppBar position="fixed">
+    <AppBar position="fixed"
+    sx={{ backgroundColor: 'rgba(64, 82, 181, 0.6)', backdropFilter: 'blur(6px)' }}
+    >
       <Toolbar>
         {/* Home button */}
         {/* <IconButton edge="start" color="inherit" aria-label="home" sx={{ mr: 2 }}>

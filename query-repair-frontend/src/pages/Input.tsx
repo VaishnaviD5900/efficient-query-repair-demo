@@ -25,16 +25,38 @@ import DatasetSchema from "../features/DatasetSchema";
 // Navigation
 import { useNavigate } from "react-router-dom";
 
-const datasetConfig = [
+// Types
+type Constraint = {
+  field: string;
+  op: string;
+  value: string;
+};
+
+type Aggregation = {
+  name: string;
+  func: "count" | "sum" | "avg" | "min" | "max";
+  predicates: Constraint[];
+};
+
+type Dataset = {
+  id: string;
+  name: string;
+  file: string;
+  size: number; // in KB
+};
+
+const datasetConfig: Dataset[] = [
   {
     id: "acs",
     name: "ACS Income State",
     file: "/datasets/ACSIncome_state_number1 2(in).csv",
+    size: 44551, // in KB
   },
   {
     id: "healthcare",
     name: "Healthcare 800",
     file: "/datasets/healthcare_800(in).csv",
+    size: 34, // in KB
   },
 ];
 
@@ -42,14 +64,22 @@ export default function InputPage() {
   const [selectedDatasetId, setSelectedDatasetId] = useState<string | null>(
     null
   );
-  const [datasetPreview, setDatasetPreview] = useState<any[]>([]);
+  const [datasetPreview, setDatasetPreview] = useState<Record<string, any>[]>(
+    []
+  );
   const [isLoading, setIsLoading] = useState(false);
-  const [constraints, setConstraints] = useState([
+  const [constraints, setConstraints] = useState<Constraint[]>([
     { field: "", op: "", value: "" },
   ]);
-  const [aggregateConstraints, setAggregateConstraints] = useState([
-    { field: "", value: "", aggOp: "", amount: "" },
+  const [aggregations, setAggregations] = useState<Aggregation[]>([
+    {
+      name: "agg1",
+      func: "count",
+      predicates: [{ field: "", op: "", value: "" }],
+    },
   ]);
+  const [aggregateConstraintExpr, setAggregateConstraintExpr] =
+    useState<string>("");
   const [columnTypes, setColumnTypes] = useState<Record<string, string>>({});
   const navigate = useNavigate();
 
@@ -83,22 +113,19 @@ export default function InputPage() {
     });
   };
 
-  const handleDatasetClick = (dataset: any) => {
+  const handleDatasetClick = (dataset: Dataset) => {
     setSelectedDatasetId(dataset.id);
     loadDataset(dataset.file);
   };
 
   const handleConstraintChange = (
     index: number,
-    key: "field" | "op" | "value",
+    key: keyof Constraint,
     value: string
   ) => {
     const updated = [...constraints];
     updated[index][key] = value;
-
-    // Reset op if field is changed
     if (key === "field") updated[index]["op"] = "";
-
     setConstraints(updated);
   };
 
@@ -112,80 +139,47 @@ export default function InputPage() {
     setConstraints(updated);
   };
 
-  const handleAggregateChange = (
-    index: number,
-    key: "field" | "value" | "aggOp" | "amount",
-    value: string
-  ) => {
-    const updated = [...aggregateConstraints];
-    updated[index][key] = value;
-    setAggregateConstraints(updated);
-  };
-
-  const handleAddAggregate = () => {
-    setAggregateConstraints([
-      ...aggregateConstraints,
-      { field: "", value: "", aggOp: "", amount: "" },
-    ]);
-  };
-
-  const handleRemoveAggregate = (index: number) => {
-    const updated = [...aggregateConstraints];
-    updated.splice(index, 1);
-    setAggregateConstraints(updated);
-  };
-
   const columnOptions =
     datasetPreview.length > 0 ? Object.keys(datasetPreview[0]) : [];
 
-  const getOperatorsForField = (field: string) => {
+  const getOperatorsForField = (field: string): string[] => {
     const type = columnTypes[field];
     if (type === "number") return ["<", "<=", "=", ">=", ">"];
     if (type === "string" || type === "boolean") return ["=", "!="];
     return [];
   };
 
-  const generateSQLQuery = () => {
-    const tableName = "uploaded"; // assuming this name for now
+  const buildPredicate = (agg: Aggregation): string => {
+    return agg.predicates
+      .filter((p) => p.field && p.op && p.value)
+      .map((p) => `${p.field} ${p.op} '${p.value}'`)
+      .join(" AND ");
+  };
 
-    // WHERE clause (selection constraints)
+  const generateSQLQuery = () => {
+    const selectedDataset = datasetConfig.find(
+      (d) => d.id === selectedDatasetId
+    );
+    const tableName = selectedDataset?.id || "uploaded";
     const whereConditions = constraints
       .filter((c) => c.field && c.op && c.value)
       .map((c) => `${c.field} ${c.op} '${c.value}'`);
-
     const whereClause =
       whereConditions.length > 0
         ? `WHERE ${whereConditions.join(" AND ")}`
         : "";
-
-    // GROUP BY and HAVING (aggregate constraints)
-    const groupByFields = aggregateConstraints
-      .filter((a) => a.field)
-      .map((a) => a.field);
-
-    const groupByClause =
-      groupByFields.length > 0
-        ? `GROUP BY ${[...new Set(groupByFields)].join(", ")}`
-        : "";
-
-    const havingConditions = aggregateConstraints
-      .filter((a) => a.aggOp && a.amount)
-      .map((a) => `COUNT(*) ${a.aggOp} ${a.amount}`);
-
-    const havingClause =
-      havingConditions.length > 0
-        ? `HAVING ${havingConditions.join(" AND ")}`
-        : "";
-
-    // Final query
-    const query = `SELECT * FROM ${tableName} ${whereClause} ${groupByClause} ${havingClause};`;
-
+    const query = `SELECT * FROM ${tableName} ${whereClause};`;
     console.log("Generated SQL Query:", query);
+    console.log(
+      "Defined Aggregations:",
+      aggregations.map((a) => ({ ...a, predicate: buildPredicate(a) }))
+    );
+    console.log("Constraint Expression:", aggregateConstraintExpr);
     return query;
   };
 
   return (
-    <Container maxWidth="lg" sx={{ pt: 4}}>
+    <Container maxWidth="lg" sx={{ pt: 2 }}>
       <Typography variant="h4" fontWeight="bold" gutterBottom>
         SQL Query Repair
       </Typography>
@@ -194,26 +188,33 @@ export default function InputPage() {
         Select a Dataset
       </Typography>
       <Grid container spacing={2} mb={3}>
-        {datasetConfig.map((dataset) => (
-          <Grid size={{ xs: 12, sm: 4 }} key={dataset.id}>
-            <Card
-              sx={{
-                backgroundColor:
-                  dataset.id === selectedDatasetId
-                    ? "primary.light"
+        {datasetConfig.map((dataset) => {
+          const isSelected = dataset.id === selectedDatasetId;
+
+          return (
+            <Grid size={{ xs: 12, sm: 4 }} key={dataset.id}>
+              <Card
+                sx={{
+                  backgroundColor: isSelected
+                    ? "rgba(64, 82, 181, 0.6)"
                     : "grey.300",
-              }}
-            >
-              <CardActionArea onClick={() => handleDatasetClick(dataset)}>
-                <CardContent>
-                  <Typography variant="h6" align="center">
-                    {dataset.name}
-                  </Typography>
-                </CardContent>
-              </CardActionArea>
-            </Card>
-          </Grid>
-        ))}
+                }}
+              >
+                <CardActionArea onClick={() => handleDatasetClick(dataset)}>
+                  <CardContent>
+                    <Typography
+                      variant="h6"
+                      align="center"
+                      color={isSelected ? "white" : "black"}
+                    >
+                      {dataset.name}
+                    </Typography>
+                  </CardContent>
+                </CardActionArea>
+              </Card>
+            </Grid>
+          );
+        })}
       </Grid>
 
       {isLoading && (
@@ -287,72 +288,201 @@ export default function InputPage() {
       ))}
 
       <Typography variant="h6" gutterBottom>
-        Define Aggregate Constraints
+        Define Aggregation Functions
       </Typography>
-      {aggregateConstraints.map((agg, index) => (
-        <Box key={index} display="flex" alignItems="center" gap={2} mb={2}>
-          <TextField
-            select
-            label="Field"
-            size="small"
-            value={agg.field}
-            onChange={(e) =>
-              handleAggregateChange(index, "field", e.target.value)
-            }
-            sx={{ minWidth: 210 }}
-          >
-            {columnOptions.map((col) => (
-              <MenuItem key={col} value={col}>
-                {col}
-              </MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            label="="
-            size="small"
-            value={agg.value}
-            onChange={(e) =>
-              handleAggregateChange(index, "value", e.target.value)
-            }
-          />
-          <Box display="flex" gap={1}>
+      {aggregations.map((agg, index) => (
+        <Box key={index} mb={2}>
+          <Box display="flex" alignItems="center" gap={2}>
             <TextField
-              label="C-Op"
+              label="Name"
               size="small"
-              value={agg.aggOp}
-              onChange={(e) =>
-                handleAggregateChange(index, "aggOp", e.target.value)
-              }
+              value={`agg${index + 1}`}
+              disabled
               sx={{ width: 100 }}
             />
             <TextField
-              label="Amount"
+              select
+              label="Function"
               size="small"
-              value={agg.amount}
-              onChange={(e) =>
-                handleAggregateChange(index, "amount", e.target.value)
-              }
-              sx={{ width: 100 }}
-            />
-          </Box>
-          <IconButton onClick={handleAddAggregate}>
-            <AddIcon />
-          </IconButton>
-          {aggregateConstraints.length > 1 && (
-            <IconButton onClick={() => handleRemoveAggregate(index)}>
-              <RemoveIcon />
+              value={agg.func}
+              onChange={(e) => {
+                const updated = [...aggregations];
+                updated[index].func = e.target.value as Aggregation["func"];
+                setAggregations(updated);
+              }}
+              sx={{ width: 120 }}
+            >
+              {["count", "sum", "avg", "min", "max"].map((fn) => (
+                <MenuItem key={fn} value={fn}>
+                  {fn}
+                </MenuItem>
+              ))}
+            </TextField>
+            <IconButton
+              onClick={() => {
+                setAggregations([
+                  ...aggregations,
+                  {
+                    name: `agg${aggregations.length + 1}`,
+                    func: "count",
+                    predicates: [{ field: "", op: "", value: "" }],
+                  },
+                ]);
+              }}
+            >
+              <AddIcon />
             </IconButton>
-          )}
+            {aggregations.length > 1 && (
+              <IconButton
+                onClick={() => {
+                  const updated = [...aggregations];
+                  updated.splice(index, 1);
+                  setAggregations(updated);
+                }}
+              >
+                <RemoveIcon />
+              </IconButton>
+            )}
+          </Box>
+
+          {/* Aggregation Predicates */}
+          {agg.predicates.map((pred, predIndex) => (
+            <Box
+              key={predIndex}
+              display="flex"
+              alignItems="center"
+              gap={2}
+              mt={1}
+              ml={32}
+            >
+              <TextField
+                select
+                label="Field"
+                size="small"
+                value={pred.field}
+                onChange={(e) => {
+                  const updated = [...aggregations];
+                  updated[index].predicates[predIndex].field = e.target.value;
+                  setAggregations(updated);
+                }}
+                sx={{ minWidth: 210 }}
+              >
+                {columnOptions.map((col) => (
+                  <MenuItem key={col} value={col}>
+                    {col}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                select
+                label="Op"
+                size="small"
+                value={pred.op}
+                sx={{ width: 100 }}
+                onChange={(e) => {
+                  const updated = [...aggregations];
+                  updated[index].predicates[predIndex].op = e.target.value;
+                  setAggregations(updated);
+                }}
+              >
+                {(getOperatorsForField(pred.field) || []).map((op) => (
+                  <MenuItem key={op} value={op}>
+                    {op}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <TextField
+                label="Value"
+                size="small"
+                value={pred.value}
+                onChange={(e) => {
+                  const updated = [...aggregations];
+                  updated[index].predicates[predIndex].value = e.target.value;
+                  setAggregations(updated);
+                }}
+              />
+              <IconButton
+                onClick={() => {
+                  const updated = [...aggregations];
+                  updated[index].predicates.push({
+                    field: "",
+                    op: "",
+                    value: "",
+                  });
+                  setAggregations(updated);
+                }}
+              >
+                <AddIcon />
+              </IconButton>
+              {agg.predicates.length > 1 && (
+                <IconButton
+                  onClick={() => {
+                    const updated = [...aggregations];
+                    updated[index].predicates.splice(predIndex, 1);
+                    setAggregations(updated);
+                  }}
+                >
+                  <RemoveIcon />
+                </IconButton>
+              )}
+            </Box>
+          ))}
         </Box>
       ))}
 
+      <Typography variant="h6" gutterBottom>
+        Constraint Expression
+      </Typography>
+      <TextField
+        label="Expression (e.g., 0.1 <= (agg1 / agg2))"
+        fullWidth
+        size="small"
+        multiline
+        value={aggregateConstraintExpr}
+        onChange={(e) => setAggregateConstraintExpr(e.target.value)}
+      />
+
       <Button
         variant="contained"
-        color="primary"
-        sx={{ mt: 3 }}
+        sx={{
+          my: 3,
+          backgroundColor: "rgba(64, 82, 181, 0.8)",
+          color: "white",
+          "&:hover": {
+            backgroundColor: "rgba(64, 82, 181, 1)", // slightly darker on hover
+          },
+        }}
         onClick={() => {
           const query = generateSQLQuery();
-          navigate("/input");
+          const selectedDataset = datasetConfig.find(
+            (d) => d.id === selectedDatasetId
+          );
+
+          const aggregatedWithPredicates = aggregations.map((a) => ({
+            ...a,
+            predicate: buildPredicate(a),
+          }));
+
+          localStorage.setItem(
+            "queryRepairData",
+            JSON.stringify({
+              datasetId: selectedDataset?.id || null,
+              datasetName: selectedDataset?.name || null,
+              size: selectedDataset?.size || 0,
+              columnCount: Object.keys(columnTypes).length,
+              sqlQuery: query,
+              aggregations: aggregatedWithPredicates,
+              constraintExpr: aggregateConstraintExpr,
+            })
+          );
+          navigate("/results", {
+            state: {
+              datasetName: selectedDataset?.name || "Unknown",
+              size: selectedDataset?.size || 0,
+              columnCount: Object.keys(columnTypes).length,
+              query,
+            },
+          });
         }}
       >
         Run Repair
