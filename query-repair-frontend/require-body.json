@@ -1,0 +1,19 @@
+{
+  "dataName": "TPCH",
+  "Top_k": 7,
+  "predicates": [
+    { "field": "p_size", "op": ">=", "value": 10 },
+    { "field": "p_type", "op": "==", "value": 20 },
+    { "field": "r_name",  "op": "==", "value": 4 }
+  ],
+  "constraint_def": {
+    "columns": ["Revenue", "Revenue all"],
+    "aggregations": {
+      "agg1": "sum(\"Revenue\")",
+      "agg2": "min(\"Revenue all\")"
+    },
+    "expression": ["0.0014 <= (agg1 / agg2) <= 10000000000000"],
+    "const_num": 5
+  },
+  "output_dir": "C:/Query-Repair-System/Exp"
+}
