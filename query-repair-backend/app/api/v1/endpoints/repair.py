@@ -14,8 +14,8 @@ from app.models.schemas import RepairRequest, RepairResult
 router = APIRouter()
 
 # ---- configure where the external query-repair project lives ----
-# adjust this to the folder that contains that project's main.py
-QR_PROJECT_DIR = Path(r"C:/Query-Repair-System/Query-Repair-for-Aggregate-Constraints/pp")
+# folder that contains that project's main.py
+QR_PROJECT_DIR = Path(r"C:/Query-Repair-System/efficient-query-repair-demo/query-repair-module/pp")
 
 # add to import path once
 if str(QR_PROJECT_DIR) not in sys.path:

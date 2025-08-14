@@ -1,0 +1,2 @@
+Data Name,Data Size,Query No.,Constraint Num,Type,Top-K,Combinations No.,Distance,Access No.,Checked No.,Refinement No.,Time,Constraint Width,Solutions Count,Constraint,Query,Range Evaluation Time,Division Time,Single Time,Processing Time
+ACSIncome,50000,2,4,Ranges,7,17664,27.661,205946003,4886,7,3528.901,0.02,0,"[0.37, 0.39]","[['WKHP', '<=', 40.0, 'numerical'], ['SCHL', '<=', 19.0, 'numerical'], ['COW', '<=', 4.0, 'numerical']]",1839.166,60.381,314.982,0.193
