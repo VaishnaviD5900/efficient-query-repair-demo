@@ -1,0 +1,4 @@
+# Ignore within pp/
+venv/
+cache/
+__pycache__/
