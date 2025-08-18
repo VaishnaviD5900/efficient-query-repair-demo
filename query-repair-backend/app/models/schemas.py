@@ -12,7 +12,7 @@ class Predicate(BaseModel):
 class ConstraintDef(BaseModel):
     columns: List[str] = Field(..., description="Columns used by constraints/aggregations")
     aggregations: Dict[str, str] = Field(..., description='e.g. {"agg1": "sum(\\"Revenue\\")"}')
-    expression: List[str] = Field(..., description='e.g. ["0.1 <= (agg1 / agg2) <= 0.2"]')
+    expression: List[str] | str = Field(..., description='e.g. ["0.1 <= (agg1 / agg2) <= 0.2"]')
     const_num: Optional[int] = 0
 
 

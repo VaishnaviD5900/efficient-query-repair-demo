@@ -65,7 +65,7 @@ def run_repair(req: RepairRequest) -> RepairResult:
 
     # where to look for results;
     # use payload if provided, else default to the constant used in your main.py
-    output_dir = Path(req.output_dir or r"C:\Query-Repair-System\Exp")
+    output_dir = Path(req.output_dir or r"C:/Query-Repair-System/efficient-query-repair-demo/query-repair-backend/output")
 
     try:
         # Call external main(). Your patched main signature:

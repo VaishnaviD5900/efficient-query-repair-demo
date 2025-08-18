@@ -52,20 +52,20 @@ type Dataset = {
 // ---------- Datasets ----------
 const datasetConfig: Dataset[] = [
   {
-    id: "acs",
-    name: "ACS Income State",
+    id: "ACSIncome",
+    name: "ACSIncome",
     file: "/datasets/ACSIncome_state_number1 2(in).csv",
     size: 44551,
   },
   {
-    id: "healthcare",
-    name: "Healthcare 800",
+    id: "Healthcare",
+    name: "Healthcare",
     file: "/datasets/healthcare_800(in).csv",
     size: 34,
   },
   {
-    id: "tpch",
-    name: "TPC-H 0.1",
+    id: "TPCH",
+    name: "TPCH",
     size: 0, // optional
     files: {
       customer: "/datasets/tpch_0_1/customer.csv",
@@ -129,6 +129,7 @@ export default function InputPage() {
     useState<string>("");
   const [columnTypes, setColumnTypes] = useState<Record<string, string>>({});
   const navigate = useNavigate();
+  const [topK, setTopK] = useState<number>(7);
 
   // Alerts
   const [alertOpen, setAlertOpen] = useState(false);
@@ -377,16 +378,19 @@ export default function InputPage() {
 
   const getOperatorsForField = (field: string): string[] => {
     const type = columnTypes[field];
-    if (type === "number") return ["<", "<=", "=", ">=", ">"];
-    if (type === "string" || type === "boolean") return ["=", "!="];
+    if (type === "number") return ["<", "<=", "==", ">=", ">"];
+    if (type === "string" || type === "boolean") return ["==", "!="];
     return [];
   };
 
   const buildPredicate = (agg: Aggregation): string =>
     agg.predicates
-      .filter((p) => p.field && p.op && p.value)
-      .map((p) => `${p.field} ${p.op} '${p.value}'`)
-      .join(" AND ");
+    .filter((p) => p.field && p.op && p.value)
+    .map((p) => {
+      const isNum = !isNaN(Number(p.value));
+      return `${p.field} ${p.op} ${isNum ? p.value : `'${p.value}'`}`;
+    })
+    .join(" and ");
 
   const generateSQLQuery = () => {
     const selectedDataset = datasetConfig.find(
@@ -736,7 +740,25 @@ export default function InputPage() {
         onChange={(e) => setAggregateConstraintExpr(e.target.value)}
       />
 
-      <Button
+      <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+        Top-K Results
+      </Typography>
+      <TextField
+        type="number"
+        label="Top-K (number of repairs)"
+        size="small"
+        inputProps={{ min: 1, step: 1 }}
+        value={topK}
+        {...guardHandlers}
+        onChange={(e) => {
+          const n = parseInt(e.target.value, 10);
+          setTopK(Number.isNaN(n) ? 1 : Math.max(1, n));
+        }}
+        helperText="How many repaired queries to generate/show (minimum 1)."
+        sx={{ display: "block" }}
+      />
+
+      {/* <Button
         variant="contained"
         sx={{
           mt: 3,
@@ -767,6 +789,7 @@ export default function InputPage() {
               sqlQuery: query,
               aggregations: aggregatedWithPredicates,
               constraintExpr: aggregateConstraintExpr,
+              topK,
             })
           );
 
@@ -776,8 +799,123 @@ export default function InputPage() {
               size: selectedDataset?.size || 0,
               columnCount: Object.keys(columnTypes).length,
               query,
+              topK,
             },
           });
+        }}
+      >
+        Run Repair
+      </Button> */}
+
+      <Button
+        variant="contained"
+        sx={{
+          mt: 3,
+          backgroundColor: "rgba(64, 82, 181, 0.8)",
+          color: "white",
+          "&:hover": { backgroundColor: "rgba(64, 82, 181, 1)" },
+        }}
+        onClick={async (e) => {
+          if (!ensureDatasetSelected(e)) return;
+
+          // quick guard for topK
+          if (topK < 1) {
+            setAlertMsg("Top-K must be at least 1.");
+            setAlertOpen(true);
+            return;
+          }
+
+          const query = generateSQLQuery();
+          const selectedDataset = datasetConfig.find(
+            (d) => d.id === selectedDatasetId
+          );
+
+          const aggregatedWithPredicates = aggregations.map((a) => ({
+            ...a,
+            predicate: buildPredicate(a),
+          }));
+
+          // Persist UI context (optional)
+          localStorage.setItem(
+            "queryRepairData",
+            JSON.stringify({
+              datasetId: selectedDataset?.id || null,
+              datasetName: selectedDataset?.name || null,
+              size: selectedDataset?.size || 0,
+              columnCount: Object.keys(columnTypes).length,
+              sqlQuery: query,
+              aggregations: aggregatedWithPredicates,
+              constraintExpr: aggregateConstraintExpr,
+              topK,
+            })
+          );
+
+          // ---- Build API payload
+// ---- Build API payload
+        const payload = {
+          dataName: selectedDataset?.id || "Unknown",
+          Top_k: topK,
+          predicates: constraints
+            .filter((c) => c.field && c.op && c.value)
+            .map((c) => ({
+              field: c.field,
+              op: c.op,
+              value: isNaN(Number(c.value)) ? c.value : Number(c.value), // convert numeric strings
+            })),
+          constraint_def: {
+            // Deduplicate columns
+            columns: Array.from(
+              new Set(
+                aggregations.flatMap((a) => a.predicates.map((p) => p.field))
+              )
+            ),
+            aggregations: aggregations.reduce((acc, a, idx) => {
+              const pred = buildPredicate(a);
+              acc[`agg${idx + 1}`] = `${a.func}(${pred ? `"${pred}"` : ""})`;
+              return acc;
+            }, {} as Record<string, string>),
+            expression: aggregateConstraintExpr,
+            const_num: 3,
+          },
+          output_dir: "C:/Query-Repair-System/Exp",
+        };
+
+
+
+          try {
+            setIsLoading(true);
+
+            const res = await fetch("http://127.0.0.1:8000/api/v1/repair/run", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            });
+
+            if (!res.ok) {
+              const err = await res.json().catch(() => ({}));
+              throw new Error(err?.detail || `HTTP ${res.status}`);
+            }
+
+            const result = await res.json(); // conforms to RepairResult
+            localStorage.setItem("repairRunResult", JSON.stringify(result));
+
+            // Navigate with essentials (Results can read more from localStorage if needed)
+            navigate("/results", {
+              state: {
+                datasetName: selectedDataset?.name || "Unknown",
+                size: selectedDataset?.size || 0,
+                columnCount: Object.keys(columnTypes).length,
+                query,
+                topK,
+                outputDir: result.output_dir,
+              },
+            });
+          } catch (err: any) {
+            setAlertMsg(`Repair failed: ${err.message || err}`);
+            setAlertOpen(true);
+          } finally {
+            setIsLoading(false);
+          }
         }}
       >
         Run Repair

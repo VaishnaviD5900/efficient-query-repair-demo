@@ -1,4 +1,5 @@
 import time
+from typing import List, Union
 from SQL_operators import SQL_operators
 from kd_tree1 import kd_tree1
 from brute_force import brute_force
@@ -16,7 +17,7 @@ from filtered_with_Ranges_generalize_topK1_norm import filtered_with_Ranges_gene
 from predicatesPossibleValues import predicatesPossibleValues
 from ExpressionEvaluator import ExpressionEvaluator
 import matplotlib.pyplot as plt
-
+import re
 def analyze_distribution(df, column):
     plt.figure(figsize=(10, 6))
 
@@ -365,6 +366,36 @@ def constraint5_TPCH(df, constraint):
     return columns_used, aggregations, expression, const_num
 
 
+_NUM_LITERAL = re.compile(
+    r'(?<![A-Za-z_])'                 # not immediately preceded by a letter/underscore
+    r'(\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)'  # number: int/float with optional exponent
+    r'(?![A-Za-z_])'                  # not immediately followed by a letter/underscore
+)
+
+def _sanitize_expressions(expr_in: Union[str, List[str]]) -> Union[str, List[str]]:
+    """
+    Sanitize constraint expressions.
+    - If input is a list[str], return a list[str] with each element sanitized.
+    - If input is a str, return a sanitized str.
+
+    Converts only standalone numeric literals (e.g., 0.1, 2e-3, 1000) to float strings,
+    and does NOT touch identifiers like 'agg1', 'x2', etc.
+    """
+    def sanitize(expr: str) -> str:
+        # remove stray quotes (if any were sent around numbers)
+        expr = expr.replace("'", "").replace('"', "")
+        # convert numeric literals to canonical float strings
+        expr = _NUM_LITERAL.sub(lambda m: str(float(m.group(1))), expr)
+        return expr
+
+    if isinstance(expr_in, list):
+        return [sanitize(e) for e in expr_in]
+    elif isinstance(expr_in, str):
+        return sanitize(expr_in)
+    else:
+        raise TypeError(f"Unsupported type for expression: {type(expr_in)}")
+
+
 def resolve_constraint(dataName: str, constraint: list | tuple, constraint_def: dict | None):
     """
     Returns (constraint_columns, aggregations, expression, const_num).
@@ -374,25 +405,25 @@ def resolve_constraint(dataName: str, constraint: list | tuple, constraint_def: 
     if constraint_def is not None:
         columns = constraint_def["columns"]
         aggregations = constraint_def["aggregations"]
-        expression = constraint_def["expression"]
-        const_num = constraint_def.get("const_num", 0)
+        expression = _sanitize_expressions(constraint_def["expression"])  # may be str or list
+        print("expression::", expression)
+        const_num = int(constraint_def.get("const_num", 0))
         return columns, aggregations, expression, const_num
 
-    # Fallback defaults (minimal): TPCH == old constraint5_TPCH
     if dataName == "TPCH":
-        # old: "agg1=sum(Revenue); agg2=min(Revenue all); low <= (agg1/agg2) <= high"
-        low, high = constraint
+        low, high = map(float, constraint)
         columns = ["Revenue", "Revenue all"]
         aggregations = {
             "agg1": 'sum("Revenue")',
             "agg2": 'min("Revenue all")',
         }
+        # For default case, keep same type convention → use list
         expression = [f"{low} <= (agg1 / agg2) <= {high}"]
         const_num = 5
         return columns, aggregations, expression, const_num
 
-    # If you later want Healthcare/ACSIncome defaults, add them here similarly.
     raise ValueError("constraint_def is required for this dataset.")
+
 
 def main(dataName: str = "TPCH",
     Top_k: int = 7,
@@ -416,6 +447,9 @@ def main(dataName: str = "TPCH",
             "const_num": 5
         }
 
+    print("predicates", predicates)
+    print("constraints", constraint_def)
+
     # Define the configurations
     # -----------------------------------------------
     constraints = [[0.0014, 10000000000000]]
@@ -425,7 +459,7 @@ def main(dataName: str = "TPCH",
     bucketSize = [15] 
     branchNum = [5] 
     queryNum = 7
-    outputDirectory = "C:/Query-Repair-System/Exp"
+    outputDirectory = "C:/Query-Repair-System/efficient-query-repair-demo/query-repair-backend/output"
     # -----------------------------------------------
 
     for bucket in bucketSize:
@@ -473,9 +507,24 @@ def main(dataName: str = "TPCH",
 
                     # 3) Apply FRONTEND predicates using your existing operator
                     df_userQueryOut = df_original
+                    print("df original", df_original)
+                    REL_OPS = {"<", "<=", ">", ">="}
                     for pred in (predicates or []):
+                         col = pred["field"]
+                         op_sym = pred["op"]
+                         val = pred["value"]
+
+                        # If operator is relational, coerce both column + value to numeric
+                         if op_sym in REL_OPS:
+                            # Ensure dataframe column is numeric
+                            df_userQueryOut[col] = pd.to_numeric(df_userQueryOut[col], errors="coerce")
+                            # Ensure value is numeric too
+                            try:
+                                val = float(val)
+                            except Exception:
+                                pass
                         # Expect shape: {"field": "...", "op": "...", "value": ...}
-                        df_userQueryOut = op.filter("UQ", df_userQueryOut, pred["field"], pred["op"], pred["value"])
+                         df_userQueryOut = op.filter("UQ", df_userQueryOut, pred["field"], pred["op"], pred["value"])
 
                     # 4) Compute possible values (match your prior behavior per dataset)
                     if dataName == "TPCH":
@@ -486,7 +535,7 @@ def main(dataName: str = "TPCH",
                         all_pred_possible_values = predAttRanges.generatePossibleValues(df_original, op.get_predicates_attributes())
 
                     # 5) Provide a dummy query_num (kept for compatibility in logs)
-                    query_num = 7
+                    query_num = 1
 
                     # (Optional) debug print—mirrors your old log
                     print("input---", (df_original, df_userQueryOut, all_pred_possible_values, op, dataName, dataSize, queryNum))
@@ -507,7 +556,9 @@ def main(dataName: str = "TPCH",
                                 print("inputs::----", (constraint_columns, aggregations, expression, const_num))
                                 df_constraint = pd.DataFrame(df_original, columns=constraint_columns)    
                                 df_merged = pd.concat([df_predicate, df_constraint], axis=1)        # Merging the dataframes (predicates columns with constraints columns) by their index
-                                
+                                print("df_constraint", df_constraint)
+                                print("df_predicate", df_predicate)     # Merging the dataframes (predicates columns with constraints columns) by their index
+                                print("df_merged", df_merged)
                                 cluster_tree = get_clusters(df_merged.values.tolist(), bucket, branch)
                                 stat_start_time = time.time() 
                                 statistical_tree = get_statistical_info(cluster_tree, df_merged, aggregations, len(all_pred_possible_values), constraint_columns, dataName, dataSize, query_num)
