@@ -29,3 +29,40 @@ class RepairResult(BaseModel):
     output_dir: Optional[str] = None
     files: Optional[List[str]] = None
     note: Optional[str] = None
+
+# ---------- parsed artifacts for Results page ----------
+
+class RunInfo(BaseModel):
+    # allow using either the field name (dataset) or the alias ("Data Name")
+
+    dataset: Optional[str] = Field(None, alias="Data Name")
+    size: Optional[int] = Field(None, alias="Data Size")
+    query_num: Optional[int] = Field(None, alias="Query Num")
+    constraint_num: Optional[int] = Field(None, alias="Constraint Num")
+    run_type: Optional[str] = Field(None, alias="Type")
+    top_k: Optional[int] = Field(None, alias="Top-K")
+    combinations: Optional[int] = Field(None, alias="Combinations Num")
+    distance: Optional[float] = Field(None, alias="Distance")
+    access_num: Optional[int] = Field(None, alias="Access Num")
+    checked_num: Optional[int] = Field(None, alias="Checked Num")
+    refinement_num: Optional[int] = Field(None, alias="Refinement Num")
+    time_sec: Optional[float] = Field(None, alias="Time")
+    constraint_width: Optional[float] = Field(None, alias="Constraint Width")
+    solutions_count: Optional[int] = Field(None, alias="Solutions Count")
+    constraint_text: Optional[str] = Field(None, alias="Constraint")
+    query_text: Optional[str] = Field(None, alias="Query")
+    range_eval_time: Optional[float] = Field(None, alias="Range Evaluation Time")
+    division_time: Optional[float] = Field(None, alias="Division Time")
+    single_time: Optional[float] = Field(None, alias="Single Time")
+    processing_time: Optional[float] = Field(None, alias="Processing Time")
+
+
+class SatisfiedRow(BaseModel):
+    row: Dict[str, Any]
+
+class ParsedResults(BaseModel):
+    output_dir: str
+    run_info: List = []
+    satisfied_conditions_ff: List[SatisfiedRow] = []
+    satisfied_conditions_rp: List[SatisfiedRow] = []
+    raw_files: List[str] = []

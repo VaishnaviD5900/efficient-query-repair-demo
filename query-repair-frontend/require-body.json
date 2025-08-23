@@ -1,73 +1,112 @@
-[{
-  "dataName": "TPCH",
-  "Top_k": 7,
-  "predicates": [
-    {
-      "field": "p_size",
-      "op": ">=",
-      "value": 10
-    },
-    {
-      "field": "p_type",
-      "op": "==",
-      "value": 20
-    },
-    {
-      "field": "r_name",
-      "op": "==",
-      "value": 4
-    }
-  ],
-  "constraint_def": {
-    "columns": [
-      "Revenue",
-      "Revenue all"
+[
+  {
+    "dataName": "TPCH",
+    "Top_k": 7,
+    "predicates": [
+      {
+        "field": "p_size",
+        "op": ">=",
+        "value": 10
+      },
+      {
+        "field": "p_type",
+        "op": "==",
+        "value": 20
+      },
+      {
+        "field": "r_name",
+        "op": "==",
+        "value": 4
+      }
     ],
-    "aggregations": {
-      "agg1": "sum(\"Revenue\")",
-      "agg2": "min(\"Revenue all\")"
+    "constraint_def": {
+      "columns": [
+        "Revenue",
+        "Revenue all"
+      ],
+      "aggregations": {
+        "agg1": "sum(\"Revenue\")",
+        "agg2": "min(\"Revenue all\")"
+      },
+      "expression": [
+        "0.0014 <= (agg1 / agg2) <= 10000000000000"
+      ],
+      "const_num": 5
     },
-    "expression": [
-      "0.0014 <= (agg1 / agg2) <= 10000000000000"
-    ],
-    "const_num": 5
+    "output_dir": "C:/Query-Repair-System/Exp"
   },
-  "output_dir": "C:/Query-Repair-System/Exp"
-},
-{
-  "dataName": "ACSIncome",
-  "Top_k": 7,
-  "predicates": [
-    {
-      "field": "WKHP",
-      "op": ">=",
-      "value": 30
-    },
-    {
-      "field": "SCHL",
-      "op": ">=",
-      "value": 12
-    },
-    {
-      "field": "COW",
-      "op": ">=",
-      "value": 3.0
-    }
-  ],
-  "constraint_def": {
-    "columns": [
-      "SEX",
-      "PINCP"
+  {
+    "dataName": "ACSIncome",
+    "Top_k": 7,
+    "predicates": [
+      {
+        "field": "WKHP",
+        "op": ">=",
+        "value": 30
+      },
+      {
+        "field": "SCHL",
+        "op": ">=",
+        "value": 12
+      },
+      {
+        "field": "COW",
+        "op": ">=",
+        "value": 3.0
+      }
     ],
-    "aggregations": {
-      "agg1": "count(\"SEX == 1 and PINCP >= 20000\")",
-      "agg2": "count(\"SEX == 1\")",
-      "agg3": "count(\"SEX == 2 and PINCP >= 20000\")",
-      "agg4": "count(\"SEX == 2\")"
+    "constraint_def": {
+      "columns": [
+        "SEX",
+        "PINCP"
+      ],
+      "aggregations": {
+        "agg1": "count(\"SEX == 1 and PINCP >= 20000\")",
+        "agg2": "count(\"SEX == 1\")",
+        "agg3": "count(\"SEX == 2 and PINCP >= 20000\")",
+        "agg4": "count(\"SEX == 2\")"
+      },
+      "expression": "0.0 <= (agg1 / agg2) - (agg3 / agg4) <= 0.2",
+      "const_num": 3
     },
-    "expression": "0.0 <= (agg1 / agg2) - (agg3 / agg4) <= 0.2",
-    "const_num": 3
+    "output_dir": "C:/Query-Repair-System/Exp"
   },
-  "output_dir": "C:/Query-Repair-System/Exp"
-}
+  {
+    "dataName": "Healthcare",
+    "Top_k": 7,
+    "predicates": [
+      {
+        "field": "income",
+        "op": "<=",
+        "value": 100000
+      },
+      {
+        "field": "complications",
+        "op": ">=",
+        "value": 5
+      },
+      {
+        "field": "num-children",
+        "op": ">=",
+        "value": 4
+      }
+    ],
+    "constraint_def": {
+      "columns": [
+        "race",
+        "label"
+      ],
+      "aggregations": {
+        "agg1": "count(\"race == 1 and label == 1\")",
+        "agg2": "count(\"race == 1\")",
+        "agg3": "count(\"race == 2 and label == 1\")",
+        "agg4": "count(\"race == 2\")"
+      },
+      "expression": [
+        "0.0014 <= (agg1 / agg2) - (agg3 / agg4) <= 10000000000000"
+      ],
+      "const_num": 1
+    },
+    "output_dir": "C:/Query-Repair-System/Exp"
+  }
 ]
