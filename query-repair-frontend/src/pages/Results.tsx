@@ -15,7 +15,7 @@ import {
   TableRow,
   TableContainer,
 } from "@mui/material";
-import { CheckCircle, Cancel } from "@mui/icons-material";
+import InfoOutlined from "@mui/icons-material/InfoOutlined";
 import { useLocation } from "react-router-dom";
 import { Chip, Tooltip } from "@mui/material";
 
@@ -465,6 +465,73 @@ function SimilarityCell({
   );
 }
 
+// ========== Query matching (SQL ↔ RunInfo) ==========
+const normOp = (op: string) => (op === "==" ? "=" : op);
+const normCol = (c: string) => c.trim().toUpperCase();
+
+const token = (col: string, op: string) => `${normCol(col)}:${normOp(op)}`;
+
+// Extract predicates from *SQL* and build a sorted signature like "AGEP:>=|COW:>=|SCHL:<="
+function signatureFromSql(sql: string): string {
+  if (!sql) return "";
+  // grab all "col op number" regardless of spaces/quotes/newlines
+  const re =
+    /([A-Za-z_][A-Za-z0-9_.]*)\s*(>=|<=|==|=|>|<)\s*['"]?-?\d+(?:\.\d+)?['"]?/gi;
+  const toks: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(sql)) !== null) toks.push(token(m[1], m[2]));
+  return toks.sort().join("|");
+}
+
+// Extract predicates from RunInfo "Query" string and build the same signature
+// Example input: "[['AGEP','>=',35.0,'numerical'], ['COW','>=',2.0,'numerical'], ...]"
+function signatureFromRunInfo(qstr: string): string {
+  if (!qstr) return "";
+  // First, try real JSON parse by swapping single quotes to double quotes
+  try {
+    const json = JSON.parse(qstr.replace(/'/g, '"'));
+    if (Array.isArray(json)) {
+      const toks = json
+        .filter((e: any) => Array.isArray(e) && e.length >= 2)
+        .map((e: any[]) => token(String(e[0]), String(e[1])));
+      return toks.sort().join("|");
+    }
+  } catch {
+    // fallback to regex if it isn't clean JSON
+  }
+  // Regex fallback: pull (col, op) pairs
+  const re = /\[\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]/g;
+  const toks: string[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(qstr)) !== null) toks.push(token(m[1], m[2]));
+  return toks.sort().join("|");
+}
+
+function InfoIcon({ title }: { title: string }) {
+  return (
+    <Tooltip title={title}>
+      <InfoOutlined
+        fontSize="small"
+        sx={{
+          ml: 0.5,
+          color: "text.secondary",
+          cursor: "help",
+          verticalAlign: "text-bottom",
+        }}
+      />
+    </Tooltip>
+  );
+}
+
+function MetricLabel({ label, info }: { label: string; info: string }) {
+  return (
+    <Box component="span" sx={{ display: "inline-flex", alignItems: "center" }}>
+      <span>{label}</span>
+      <InfoIcon title={info} />
+    </Box>
+  );
+}
+
 export default function ResultsPage() {
   const location = useLocation();
 
@@ -538,29 +605,51 @@ export default function ResultsPage() {
   }, [outputDirFromState]);
 
   // --------- Derive metrics from run_info rows ----------
-  const fullyRow = artifacts?.run_info?.find(
-    (r) => (r["Type"] || r["type"]) === "Fully"
+  // --------- Derive metrics from run_info rows (ONLY if query matches) ----------
+  const runInfoRows = artifacts?.run_info || [];
+
+  const sigSql = signatureFromSql(sqlQuery);
+  const matchingRunInfo = runInfoRows.filter(
+    (r) => signatureFromRunInfo(String(r["Query"] || "")) === sigSql
   );
-  const rangesRow = artifacts?.run_info?.find(
-    (r) => (r["Type"] || r["type"]) === "Ranges"
-  );
-  const anyRow = artifacts?.run_info?.[0];
+
+  const hasRunMatch = matchingRunInfo.length > 0;
+
+  const fullyRow = hasRunMatch
+    ? matchingRunInfo.find((r) => (r["Type"] || r["type"]) === "Fully")
+    : undefined;
+
+  const rangesRow = hasRunMatch
+    ? matchingRunInfo.find((r) => (r["Type"] || r["type"]) === "Ranges")
+    : undefined;
+
+  const anyRow = hasRunMatch ? matchingRunInfo[0] : undefined;
 
   const runtimeFF = Number(fullyRow?.["Time"] ?? 0);
   const runtimeRP = Number(rangesRow?.["Time"] ?? 0);
-  const runtimeMax = Math.max(runtimeFF, runtimeRP, 1);
+  const runtimeMax = Math.max(runtimeFF || 0, runtimeRP || 0, 1);
 
   const nceFF = Number(fullyRow?.["Checked Num"] ?? 0);
   const nceRP = Number(rangesRow?.["Checked Num"] ?? 0);
-  const nceMax = Math.max(nceFF, nceRP, 1);
+  const nceMax = Math.max(nceFF || 0, nceRP || 0, 1);
 
   const ncaFF = Number(fullyRow?.["Refinement Num"] ?? 0);
   const ncaRP = Number(rangesRow?.["Refinement Num"] ?? 0);
-  const ncaMax = Math.max(ncaFF, ncaRP, 1);
+  const ncaMax = Math.max(ncaFF || 0, ncaRP || 0, 1);
 
-  const combinations = Number(anyRow?.["Combinations Num"] ?? 0);
+  // Access & Distance (run-level)
+  const accessFF = Number(fullyRow?.["Access Num"] ?? 0);
+  const accessRP = Number(rangesRow?.["Access Num"] ?? 0);
+  const accessMax = Math.max(accessFF || 0, accessRP || 0, 1); // normalize bars
 
-  // Pull bounds from RunInfo["Constraint"] if available; else fall back to a sane default
+  const distFF = Number(fullyRow?.["Distance"] ?? 0); // fraction in [0,1]
+  const distRP = Number(rangesRow?.["Distance"] ?? 0);
+  const distFFpct = Math.max(0, Math.min(100, Math.round(distFF * 100)));
+  const distRPpct = Math.max(0, Math.min(100, Math.round(distRP * 100)));
+
+  const combinations = Number(anyRow?.["Combinations Num"] ?? NaN);
+
+  // Bounds for Result visuals from the matched run (falls back to a default inside parser)
   const constraintStr = String(anyRow?.["Constraint"] ?? "");
   const bounds: Bounds = parseConstraintBounds(constraintStr);
 
@@ -604,7 +693,7 @@ export default function ResultsPage() {
             <TableHead>
               <TableRow>
                 <TableCell width={30}>Rank</TableCell>
-                <TableCell >Conditions</TableCell>
+                <TableCell>Conditions</TableCell>
                 <TableCell>Similarity</TableCell>
                 <TableCell>Result</TableCell>
                 {showRangeSatisfaction && (
@@ -687,7 +776,7 @@ export default function ResultsPage() {
         <Typography variant="h6" gutterBottom>
           Original Query
         </Typography>
-        <Paper variant="outlined" sx={{ p: 1, my: 1, minHeight: 60 }}>
+        <Paper variant="outlined" sx={{ p: 1, my: 1 }}>
           <Typography
             variant="body2"
             color="text.secondary"
@@ -700,7 +789,7 @@ export default function ResultsPage() {
         <Typography variant="h6" gutterBottom>
           Aggregate Functions
         </Typography>
-        <Paper variant="outlined" sx={{ p: 1, my: 1, minHeight: 60 }}>
+        <Paper variant="outlined" sx={{ p: 1, my: 1 }}>
           {aggregations.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
               Aggregate Functions not available --
@@ -722,22 +811,19 @@ export default function ResultsPage() {
         </Paper>
 
         {/* <Grid container spacing={2}> */}
-        <Grid size={{ xs: 6 }}>
-          <Typography variant="h6">
-            Arithmetic Expression: {constraintExpr || "--"}
+
+        <Typography variant="h6" gutterBottom>
+          Arithmetic Expression
+        </Typography>
+        <Paper variant="outlined" sx={{ p: 1, my: 1 }}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            style={{ whiteSpace: "pre-wrap" }}
+          >
+            {constraintExpr || "--"}
           </Typography>
-        </Grid>
-        {/* <Grid size={{ xs: 6 }}>
-            <Typography variant="h6">
-              Constraint Status: {constraint.actual}
-              {constraint.satisfied ? (
-                <CheckCircle color="success" sx={{ ml: 1 }} />
-              ) : (
-                <Cancel color="error" sx={{ ml: 1 }} />
-              )}
-            </Typography>
-          </Grid> */}
-        {/* </Grid> */}
+        </Paper>
       </Paper>
 
       {/* ---------- Top-k Repaired Queries ---------- */}
@@ -777,23 +863,49 @@ export default function ResultsPage() {
 
       {!!artifacts?.run_info?.length && (
         <Box sx={{ mb: 2 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Combos: <strong>{isNaN(combinations) ? "—" : combinations}</strong>{" "}
-            · Fully time: <strong>{runtimeFF || "—"}s</strong> · Ranges time:{" "}
-            <strong>{runtimeRP || "—"}s</strong>
+          {/* Top summary line with info icons */}
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              mb: 1,
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 1,
+            }}
+          >
+            <MetricLabel
+              label="Combos"
+              info="Combinations Num: total number of candidate repairs considered (product of per-predicate options)."
+            />
+            :{" "}
+            <strong>
+              {Number.isFinite(combinations)
+                ? Number(combinations).toLocaleString()
+                : "—"}
+            </strong>
           </Typography>
 
           {/* Runtime */}
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" mb={0.5}>
-              Runtime (s) - FF: {runtimeFF || "—"}
+              <MetricLabel
+                label="Runtime (s) - FF"
+                info="Total wall-clock time to compute the top-k repaired queries with Full Filtering."
+              />
+              : {runtimeFF || "—"}
             </Typography>
             <LinearProgress
               variant="determinate"
               value={asPercent(runtimeFF, runtimeMax)}
             />
             <Typography variant="body2" mt={0.5}>
-              Runtime (s) - RP: {runtimeRP || "—"}
+              <MetricLabel
+                label="Runtime (s) - RP"
+                info="Total wall-clock time to compute the top-k using Range Pruning."
+              />
+              : {runtimeRP || "—"}
             </Typography>
             <LinearProgress
               variant="determinate"
@@ -805,14 +917,22 @@ export default function ResultsPage() {
           {/* NCE */}
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" mb={0.5}>
-              NCE (checks) – FF: {nceFF}
+              <MetricLabel
+                label="NCE (checks) - FF"
+                info="Number of constraint evaluations performed on candidates; lower means more pruning."
+              />
+              : {nceFF}
             </Typography>
             <LinearProgress
               variant="determinate"
               value={asPercent(nceFF, nceMax)}
             />
             <Typography variant="body2" mt={0.5}>
-              NCE (checks) – RP: {nceRP}
+              <MetricLabel
+                label="NCE (checks) - RP"
+                info="Constraint evaluations on ranges/singletons during RP; lower is better."
+              />
+              : {nceRP}
             </Typography>
             <LinearProgress
               variant="determinate"
@@ -824,18 +944,79 @@ export default function ResultsPage() {
           {/* NCA */}
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" mb={0.5}>
-              NCA (refinements) – FF: {ncaFF}
+              <MetricLabel
+                label="NCA (refinements) - FF"
+                info="Refinement steps during search (e.g., descending summaries); lower is better."
+              />
+              : {ncaFF}
             </Typography>
             <LinearProgress
               variant="determinate"
               value={asPercent(ncaFF, ncaMax)}
             />
             <Typography variant="body2" mt={0.5}>
-              NCA (refinements) – RP: {ncaRP}
+              <MetricLabel
+                label="NCA (refinements) – RP"
+                info="Number of range splits/refinements RP performed; lower is better."
+              />
+              : {ncaRP}
             </Typography>
             <LinearProgress
               variant="determinate"
               value={asPercent(ncaRP, ncaMax)}
+              color="secondary"
+            />
+          </Box>
+
+          {/* Access Num */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" mb={0.5}>
+              <MetricLabel
+                label="Access Num – FF"
+                info="How many index/cluster partitions were accessed while filtering; lower means less search effort."
+              />
+              : {Number.isFinite(accessFF) ? accessFF.toLocaleString() : "—"}
+            </Typography>
+            <LinearProgress
+              variant="determinate"
+              value={asPercent(accessFF, accessMax)}
+            />
+
+            <Typography variant="body2" mt={0.5}>
+              <MetricLabel
+                label="Access Num – RP"
+                info="Partitions/nodes accessed under RP; lower is better."
+              />
+              : {Number.isFinite(accessRP) ? accessRP.toLocaleString() : "—"}
+            </Typography>
+            <LinearProgress
+              variant="determinate"
+              value={asPercent(accessRP, accessMax)}
+              color="secondary"
+            />
+          </Box>
+
+          {/* Distance (Search explored) */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" mb={0.5}>
+              <MetricLabel
+                label="Search explored (Distance) – FF"
+                info="Fraction of the candidate space explored to find top-k; 0–100%. Lower is better."
+              />
+              : {Number.isFinite(distFF) ? `${distFFpct}%` : "—"}
+            </Typography>
+            <LinearProgress variant="determinate" value={distFFpct} />
+
+            <Typography variant="body2" mt={0.5}>
+              <MetricLabel
+                label="Search explored (Distance) – RP"
+                info="Fraction of the candidate space RP explored; lower is better."
+              />
+              : {Number.isFinite(distRP) ? `${distRPpct}%` : "—"}
+            </Typography>
+            <LinearProgress
+              variant="determinate"
+              value={distRPpct}
               color="secondary"
             />
           </Box>
