@@ -877,7 +877,7 @@ export default function ResultsPage() {
           >
             <MetricLabel
               label="Combos"
-              info="Combinations Num: total number of candidate repairs considered (product of per-predicate options)."
+              info="Combinations Num: total number of repairs considered (product of per-predicate options)."
             />
             :{" "}
             <strong>
@@ -919,7 +919,7 @@ export default function ResultsPage() {
             <Typography variant="body2" mb={0.5}>
               <MetricLabel
                 label="NCE (checks) - FF"
-                info="Number of constraint evaluations performed on candidates; lower means more pruning."
+                info="Number of constraint evaluations performed; lower means more pruning."
               />
               : {nceFF}
             </Typography>
@@ -1000,8 +1000,8 @@ export default function ResultsPage() {
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" mb={0.5}>
               <MetricLabel
-                label="Search explored (Distance) – FF"
-                info="Fraction of the candidate space explored to find top-k; 0–100%. Lower is better."
+                label="Search explored (Distance) - FF"
+                info="Fraction of space explored to find top-k; 0-100%. Lower is better."
               />
               : {Number.isFinite(distFF) ? `${distFFpct}%` : "—"}
             </Typography>
@@ -1009,8 +1009,8 @@ export default function ResultsPage() {
 
             <Typography variant="body2" mt={0.5}>
               <MetricLabel
-                label="Search explored (Distance) – RP"
-                info="Fraction of the candidate space RP explored; lower is better."
+                label="Search explored (Distance) - RP"
+                info="Fraction of space RP explored; lower is better."
               />
               : {Number.isFinite(distRP) ? `${distRPpct}%` : "—"}
             </Typography>
