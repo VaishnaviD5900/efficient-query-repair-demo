@@ -27,6 +27,24 @@ type ParsedResults = {
   raw_files: string[];
 };
 
+// Replace numeric literals (in order) in the WHERE clause with values from a vector like "[35, 1, 15]"
+function rewriteQueryWithVector(originalSql: string, vectorText: string): string {
+  if (!originalSql) return "";
+  const nums = vectorText.match(/-?\d+(?:\.\d+)?/g) || [];
+  if (!nums.length) return originalSql;
+
+  let i = 0;
+  const re =
+    /(\b[A-Za-z_][A-Za-z0-9_]*\b\s*(?:>=|<=|==|=|>|<)\s*)(['"]?)(-?\d+(?:\.\d+)?)(['"]?)/g;
+
+  return originalSql.replace(re, (full, left, ql, _oldNum, qr) => {
+    if (i >= nums.length) return full;
+    const q = ql && ql === qr ? ql : ""; // preserve matching quotes if present
+    const next = nums[i++];
+    return `${left}${q}${next}${q}`;
+  });
+}
+
 export default function ResultsPage() {
   const location = useLocation();
 
@@ -144,23 +162,31 @@ export default function ResultsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {rows.map((r, idx) => {
-                const row = r.row || {};
-                const conditions = String(row["conditions"] ?? "—");
-                const similarity = row["Similarity"] ?? "—";
-                const result = row["Result"] ?? "—";
-                const rangeSat = row["Range Satisfaction"] ?? "—";
-                return (
-                  <TableRow key={idx}>
-                    <TableCell>{idx + 1}</TableCell>
-                    <TableCell sx={{ fontFamily: "monospace" }}>{conditions}</TableCell>
-                    <TableCell>{similarity}</TableCell>
-                    <TableCell sx={{ fontFamily: "monospace" }}>{String(result)}</TableCell>
-                    {showRangeSatisfaction && <TableCell>{rangeSat}</TableCell>}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
+  {rows.map((r, idx) => {
+    const row = r.row || {};
+    const rawCond =
+      String(row["conditions"] ?? row["Conditions"] ?? "—"); // handle both keys
+    const similarity = row["Similarity"] ?? "—";
+    const result = row["Result"] ?? "—";
+    const rangeSat = row["Range Satisfaction"] ?? "—";
+
+    // Use the original query from state to rewrite thresholds
+    const condSql = rewriteQueryWithVector(sqlQuery, rawCond);
+
+    return (
+      <TableRow key={idx}>
+        <TableCell>{idx + 1}</TableCell>
+        <TableCell sx={{ fontFamily: "monospace", whiteSpace: "pre-wrap" }}>
+          {condSql}
+        </TableCell>
+        <TableCell>{similarity}</TableCell>
+        <TableCell sx={{ fontFamily: "monospace" }}>{String(result)}</TableCell>
+        {showRangeSatisfaction && <TableCell>{rangeSat}</TableCell>}
+      </TableRow>
+    );
+  })}
+</TableBody>
+
           </Table>
         </TableContainer>
       </>
@@ -248,15 +274,6 @@ export default function ResultsPage() {
 
       {renderTopKTable("Fully (point estimates)", artifacts?.satisfied_conditions_ff || [], true)}
       {renderTopKTable("Ranges (interval estimates)", artifacts?.satisfied_conditions_rp || [], false)}
-
-      <Divider sx={{ my: 3 }} />
-
-      <Typography variant="h6" gutterBottom>
-        Dataset Result Differences
-      </Typography>
-      <Typography variant="body2" color="text.secondary" mb={2}>
-        -- Placeholder for number of candidates and SPD values per repair --
-      </Typography>
 
       <Divider sx={{ my: 3 }} />
 
