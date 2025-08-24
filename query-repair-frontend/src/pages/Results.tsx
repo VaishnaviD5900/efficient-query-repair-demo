@@ -29,7 +29,10 @@ type ParsedResults = {
 };
 
 // Replace numeric literals (in order) in the WHERE clause with values from a vector like "[35, 1, 15]"
-function rewriteQueryWithVector(originalSql: string, vectorText: string): string {
+function rewriteQueryWithVector(
+  originalSql: string,
+  vectorText: string
+): string {
   if (!originalSql) return "";
   const nums = vectorText.match(/-?\d+(?:\.\d+)?/g) || [];
   if (!nums.length) return originalSql;
@@ -71,7 +74,8 @@ function parseConstraintBounds(raw?: string): Bounds {
 function parseIntervalResult(raw: string): [number, number] | null {
   const m = raw.match(/-?\d+(?:\.\d+)?/g);
   if (!m || m.length < 2) return null;
-  const lo = Number(m[0]), hi = Number(m[1]);
+  const lo = Number(m[0]),
+    hi = Number(m[1]);
   if (Number.isFinite(lo) && Number.isFinite(hi)) return [lo, hi];
   return null;
 }
@@ -82,12 +86,15 @@ function computeStatusPoint(v: number, b: Bounds): "PASS" | "FAIL" {
   return lbOk && ubOk ? "PASS" : "FAIL";
 }
 
-function computeStatusInterval(lo: number, hi: number, b: Bounds): "PASS" | "FAIL" | "INCONCLUSIVE" {
+function computeStatusInterval(
+  lo: number,
+  hi: number,
+  b: Bounds
+): "PASS" | "FAIL" | "INCONCLUSIVE" {
   const definitelyBelow = b.lb != null && hi < b.lb!;
   const definitelyAbove = b.ub != null && lo > b.ub!;
   const definitelyInside =
-    (b.lb == null || lo >= b.lb!) &&
-    (b.ub == null || hi <= b.ub!);
+    (b.lb == null || lo >= b.lb!) && (b.ub == null || hi <= b.ub!);
   if (definitelyInside) return "PASS";
   if (definitelyBelow || definitelyAbove) return "FAIL";
   return "INCONCLUSIVE";
@@ -133,16 +140,30 @@ function PointResult({ value, bounds }: { value: number; bounds: Bounds }) {
   );
 }
 
-function RangeResult({ lo, hi, bounds }: { lo: number; hi: number; bounds: Bounds }) {
+function RangeResult({
+  lo,
+  hi,
+  bounds,
+}: {
+  lo: number;
+  hi: number;
+  bounds: Bounds;
+}) {
   const status = computeStatusInterval(lo, hi, bounds);
-  const chipColor = status === "PASS" ? "success" : status === "FAIL" ? "error" : "warning";
+  const chipColor =
+    status === "PASS" ? "success" : status === "FAIL" ? "error" : "warning";
   return (
     <Box display="flex" flexDirection="column" gap={0.5}>
       <Box display="flex" alignItems="center" gap={1}>
         <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
           {toPct(lo)} – {toPct(hi)}
         </Typography>
-        <Chip size="small" label={status} color={chipColor as any} variant="outlined" />
+        <Chip
+          size="small"
+          label={status}
+          color={chipColor as any}
+          variant="outlined"
+        />
       </Box>
       <MiniBar range={[lo, hi]} bounds={bounds} />
     </Box>
@@ -158,56 +179,114 @@ function MiniBar({
   range?: [number, number];
   bounds: Bounds;
 }) {
-  const domain = barDomainMax(range ? range[1] : (value ?? 0), bounds); // scale to max of hi/value
+  const domain = barDomainMax(range ? range[1] : value ?? 0, bounds); // scale to max of hi/value
   const pos = (x: number) => `${clamp(x / domain, 0, 1) * 100}%`;
 
   return (
-    <Box sx={{ position: "relative", width: 180, height: 8, borderRadius: 4, bgcolor: "grey.300" }}>
+    <Box
+      sx={{
+        position: "relative",
+        width: 180,
+        height: 8,
+        borderRadius: 4,
+        bgcolor: "grey.300",
+      }}
+    >
       {/* Lower bound marker (if in view) */}
       {bounds.lb != null && bounds.lb <= domain && (
         <Tooltip title={`Lower bound ${toPct(bounds.lb)}`}>
-          <Box sx={{
-            position: "absolute", left: pos(bounds.lb), top: 0, bottom: 0,
-            width: 2, bgcolor: "grey.600"
-          }} />
+          <Box
+            sx={{
+              position: "absolute",
+              left: pos(bounds.lb),
+              top: 0,
+              bottom: 0,
+              width: 2,
+              bgcolor: "grey.600",
+            }}
+          />
         </Tooltip>
       )}
 
       {/* Upper bound marker (if in view) */}
       {bounds.ub != null && bounds.ub <= domain && (
         <Tooltip title={`Upper bound ${toPct(bounds.ub)}`}>
-          <Box sx={{
-            position: "absolute", left: pos(bounds.ub), top: 0, bottom: 0,
-            width: 2, bgcolor: "grey.600"
-          }} />
+          <Box
+            sx={{
+              position: "absolute",
+              left: pos(bounds.ub),
+              top: 0,
+              bottom: 0,
+              width: 2,
+              bgcolor: "grey.600",
+            }}
+          />
         </Tooltip>
       )}
 
       {/* Value dot or interval span */}
       {typeof value === "number" ? (
-        <Box sx={{
-          position: "absolute", left: pos(value), top: -3, width: 14, height: 14,
-          borderRadius: "50%",
-          bgcolor: (theme) => (computeStatusPoint(value, bounds) === "PASS" ? passColor(theme) : failColor(theme)),
-          transform: "translateX(-50%)"
-        }} />
+        <Box
+          sx={{
+            position: "absolute",
+            left: pos(value),
+            top: -3,
+            width: 14,
+            height: 14,
+            borderRadius: "50%",
+            bgcolor: (theme) =>
+              computeStatusPoint(value, bounds) === "PASS"
+                ? passColor(theme)
+                : failColor(theme),
+            transform: "translateX(-50%)",
+          }}
+        />
       ) : range ? (
         <>
           {/* Interval band */}
-          <Box sx={{
-            position: "absolute",
-            left: pos(range[0]),
-            width: `calc(${pos(range[1])} - ${pos(range[0])})`,
-            top: 2, height: 4,
-            bgcolor: (theme) => {
-              const s = computeStatusInterval(range[0], range[1], bounds);
-              return s === "PASS" ? passColor(theme) : s === "FAIL" ? failColor(theme) : warnColor(theme);
-            },
-            borderRadius: 2,
-          }} />
+          <Box
+            sx={{
+              position: "absolute",
+              left: pos(range[0]),
+              width: `calc(${pos(range[1])} - ${pos(range[0])})`,
+              top: 2,
+              height: 4,
+              bgcolor: (theme) => {
+                const s = computeStatusInterval(range[0], range[1], bounds);
+                return s === "PASS"
+                  ? passColor(theme)
+                  : s === "FAIL"
+                  ? failColor(theme)
+                  : warnColor(theme);
+              },
+              borderRadius: 2,
+            }}
+          />
           {/* End caps */}
-          <Box sx={{ position: "absolute", left: pos(range[0]), top: -2, width: 8, height: 8, borderRadius: "50%", bgcolor: "grey.700", transform: "translateX(-50%)" }} />
-          <Box sx={{ position: "absolute", left: pos(range[1]), top: -2, width: 8, height: 8, borderRadius: "50%", bgcolor: "grey.700", transform: "translateX(-50%)" }} />
+          <Box
+            sx={{
+              position: "absolute",
+              left: pos(range[0]),
+              top: -2,
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              bgcolor: "grey.700",
+              transform: "translateX(-50%)",
+            }}
+          />
+          <Box
+            sx={{
+              position: "absolute",
+              left: pos(range[1]),
+              top: -2,
+              width: 8,
+              height: 8,
+              borderRadius: "50%",
+              bgcolor: "grey.700",
+              transform: "translateX(-50%)",
+            }}
+          />
         </>
       ) : null}
     </Box>
@@ -215,13 +294,7 @@ function MiniBar({
 }
 
 // Wrapper used in the table cell
-function ResultCell({
-  rawResult,
-  bounds,
-}: {
-  rawResult: any;
-  bounds: Bounds;
-}) {
+function ResultCell({ rawResult, bounds }: { rawResult: any; bounds: Bounds }) {
   const text = String(rawResult ?? "");
   const interval = parseIntervalResult(text);
   if (interval) {
@@ -231,6 +304,166 @@ function ResultCell({
   return <PointResult value={num} bounds={bounds} />;
 }
 
+// ---------- Similarity helpers ----------
+type Pred = { column: string; op: string; rhs: number | null };
+type SimPart = {
+  column: string;
+  from: number | null;
+  to: number | null;
+  delta: number;
+  sign: number;
+};
+
+function parsePredicatesWithRhs(sql: string): Pred[] {
+  const preds: Pred[] = [];
+  if (!sql) return preds;
+  const re =
+    /([A-Za-z_][A-Za-z0-9_]*)\s*(>=|<=|==|=|>|<)\s*'?(-?\d+(?:\.\d+)?)'?/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(sql)) !== null) {
+    const col = m[1];
+    const op = m[2] === "==" ? "=" : m[2];
+    const rhs = Number(m[3]);
+    preds.push({ column: col, op, rhs: Number.isFinite(rhs) ? rhs : null });
+  }
+  return preds;
+}
+
+function parseVectorNums(text: string): number[] {
+  return (text.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+}
+
+// L1 distance + parts (used if CSV "Similarity" missing or for chips)
+function computeSimilarityBreakdown(
+  sql: string,
+  vectorText: string
+): { total: number; parts: SimPart[] } {
+  const preds = parsePredicatesWithRhs(sql);
+  const vec = parseVectorNums(vectorText);
+  const parts: SimPart[] = [];
+
+  for (let i = 0; i < Math.min(preds.length, vec.length); i++) {
+    const from = preds[i].rhs;
+    const to = vec[i];
+    const delta =
+      from == null || !Number.isFinite(to) ? 0 : Math.abs(to - from);
+    const sign = from == null || !Number.isFinite(to) ? 0 : to - from;
+    parts.push({ column: preds[i].column, from, to, delta, sign });
+  }
+  const total = parts.reduce((s, p) => s + p.delta, 0);
+  return { total, parts };
+}
+
+function getMaxSimilarity(
+  rows: { row: Record<string, any> }[],
+  sql: string
+): number {
+  const values = rows.map((r) => {
+    const sim = Number(r.row?.["Similarity"]);
+    if (Number.isFinite(sim)) return sim;
+    const cond = String(r.row?.["conditions"] ?? r.row?.["Conditions"] ?? "");
+    return computeSimilarityBreakdown(sql, cond).total;
+  });
+  const max = Math.max(1, ...values.filter((v) => Number.isFinite(v)));
+  return max;
+}
+
+// --- Small bar (lower = closer) ---
+function SimilarityBar({ value, max }: { value: number; max: number }) {
+  const pct = Math.max(0, Math.min(1, value / Math.max(1, max)));
+  return (
+    <Box>
+      {/* the bar */}
+      <Box
+        sx={{
+          position: "relative",
+          width: 180,
+          height: 10,
+          borderRadius: 5,
+          bgcolor: "grey.300",
+        }}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            left: `${pct * 100}%`,
+            top: "50%",
+            width: 12,
+            height: 12,
+            borderRadius: "50%",
+            bgcolor: (theme) => theme.palette.primary.main,
+            transform: "translate(-50%, -50%)", // center dot *inside* the bar
+          }}
+        />
+      </Box>
+
+      {/* captions on a separate row to avoid overlap */}
+      <Box sx={{ display: "flex", justifyContent: "space-between", mt: 0.5 }}>
+        <Typography variant="caption" color="text.secondary">
+          Closer
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {Math.max(1, max)}+
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+// --- Cell renderer for the table ---
+function SimilarityCell({
+  similarityValue,
+  vectorText,
+  sql,
+  max,
+}: {
+  similarityValue: any;
+  vectorText: string;
+  sql: string;
+  max: number;
+}) {
+  const numeric = Number(similarityValue);
+  const { total, parts } = computeSimilarityBreakdown(sql, vectorText);
+  const value = Number.isFinite(numeric) ? numeric : total;
+
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+      <Box display="flex" alignItems="center" gap={1}>
+        <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+          {value}
+        </Typography>
+        <Chip size="small" label="lower is closer" variant="outlined" />
+      </Box>
+
+      <SimilarityBar value={value} max={Math.max(1, max)} />
+
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+        {parts.map((p, i) => {
+          const label =
+            p.delta === 0
+              ? `${p.column} 0`
+              : `${p.column} ${p.sign > 0 ? "+" : ""}${p.sign}`;
+          const color = p.delta === 0 ? "default" : "primary";
+          return (
+            <Tooltip
+              key={i}
+              title={`${p.column}: ${p.from ?? "?"} → ${p.to ?? "?"} (Δ=${
+                p.delta
+              })`}
+            >
+              <Chip
+                size="small"
+                label={label}
+                color={color as any}
+                variant="outlined"
+              />
+            </Tooltip>
+          );
+        })}
+      </Box>
+    </Box>
+  );
+}
 
 export default function ResultsPage() {
   const location = useLocation();
@@ -253,7 +486,12 @@ export default function ResultsPage() {
   } = (location.state as any) || {};
 
   // Placeholder until you wire the real constraint value from artifacts
-  const constraint = { type: "SPD", threshold: 0.2, actual: 0.35, satisfied: false };
+  const constraint = {
+    type: "SPD",
+    threshold: 0.2,
+    actual: 0.35,
+    satisfied: false,
+  };
 
   // Helper to normalize progress bars (0–100)
   const asPercent = (value: number, max: number) =>
@@ -270,7 +508,8 @@ export default function ResultsPage() {
     }
 
     // Determine output dir: from state, else from localStorage (set it after /repair/run)
-    const outputDir = outputDirFromState || localStorage.getItem("qrOutputDir") || "";
+    const outputDir =
+      outputDirFromState || localStorage.getItem("qrOutputDir") || "";
 
     if (!outputDir) {
       setError("Missing output directory. Run a repair first.");
@@ -299,8 +538,12 @@ export default function ResultsPage() {
   }, [outputDirFromState]);
 
   // --------- Derive metrics from run_info rows ----------
-  const fullyRow = artifacts?.run_info?.find((r) => (r["Type"] || r["type"]) === "Fully");
-  const rangesRow = artifacts?.run_info?.find((r) => (r["Type"] || r["type"]) === "Ranges");
+  const fullyRow = artifacts?.run_info?.find(
+    (r) => (r["Type"] || r["type"]) === "Fully"
+  );
+  const rangesRow = artifacts?.run_info?.find(
+    (r) => (r["Type"] || r["type"]) === "Ranges"
+  );
   const anyRow = artifacts?.run_info?.[0];
 
   const runtimeFF = Number(fullyRow?.["Time"] ?? 0);
@@ -321,18 +564,29 @@ export default function ResultsPage() {
   const constraintStr = String(anyRow?.["Constraint"] ?? "");
   const bounds: Bounds = parseConstraintBounds(constraintStr);
 
+  const maxSimFF = getMaxSimilarity(
+    artifacts?.satisfied_conditions_ff || [],
+    sqlQuery
+  );
+  const maxSimRP = getMaxSimilarity(
+    artifacts?.satisfied_conditions_rp || [],
+    sqlQuery
+  );
 
   // --------- Render helpers ----------
   const renderTopKTable = (
     title: string,
     rows: { row: Record<string, any> }[],
     showRangeSatisfaction: boolean,
-    bounds: Bounds
+    bounds: Bounds,
+    maxSim: number
   ) => {
     if (!rows?.length) {
       return (
         <>
-          <Typography variant="subtitle1" gutterBottom>{title}</Typography>
+          <Typography variant="subtitle1" gutterBottom>
+            {title}
+          </Typography>
           <Typography variant="body2" color="text.secondary" mb={2}>
             No rows to display.
           </Typography>
@@ -342,48 +596,63 @@ export default function ResultsPage() {
 
     return (
       <>
-        <Typography variant="subtitle1" gutterBottom>{title}</Typography>
+        <Typography variant="subtitle1" gutterBottom>
+          {title}
+        </Typography>
         <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
           <Table size="small">
             <TableHead>
               <TableRow>
-                <TableCell width={60}>Rank</TableCell>
-                <TableCell>Conditions</TableCell>
+                <TableCell width={30}>Rank</TableCell>
+                <TableCell >Conditions</TableCell>
                 <TableCell>Similarity</TableCell>
                 <TableCell>Result</TableCell>
-                {showRangeSatisfaction && <TableCell>Range Satisfaction</TableCell>}
+                {showRangeSatisfaction && (
+                  <TableCell width={50}>Range Satisfaction</TableCell>
+                )}
               </TableRow>
             </TableHead>
             <TableBody>
-  {rows.map((r, idx) => {
-    const row = r.row || {};
-    const rawCond = String(row["conditions"] ?? row["Conditions"] ?? "—");
-    const similarity = row["Similarity"] ?? "—";
-    const result = row["Result"] ?? "—";
-    const rangeSat = row["Range Satisfaction"] ?? "—";
+              {rows.map((r, idx) => {
+                const row = r.row || {};
+                const rawCond = String(
+                  row["conditions"] ?? row["Conditions"] ?? "—"
+                );
+                const similarity = row["Similarity"] ?? "—";
+                const result = row["Result"] ?? "—";
+                const rangeSat = row["Range Satisfaction"] ?? "—";
 
-    const condSql = rewriteQueryWithVector(sqlQuery, rawCond);
+                const condSql = rewriteQueryWithVector(sqlQuery, rawCond);
 
-    return (
-      <TableRow key={idx}>
-        <TableCell>{idx + 1}</TableCell>
-        <TableCell sx={{ fontFamily: "monospace", whiteSpace: "pre-wrap" }}>
-          {condSql}
-        </TableCell>
-        <TableCell>{similarity}</TableCell>
+                return (
+                  <TableRow key={idx}>
+                    <TableCell>{idx + 1}</TableCell>
+                    <TableCell
+                      sx={{ fontFamily: "monospace", whiteSpace: "pre-wrap" }}
+                    >
+                      {condSql}
+                    </TableCell>
+                    <TableCell
+                      sx={{ verticalAlign: "top", py: 1.25, width: 190 }}
+                    >
+                      <SimilarityCell
+                        similarityValue={similarity}
+                        vectorText={rawCond}
+                        sql={sqlQuery}
+                        max={maxSim}
+                      />
+                    </TableCell>
 
-        {/* NEW visual cell */}
-        <TableCell>
-          <ResultCell rawResult={result} bounds={bounds} />
-        </TableCell>
+                    {/* NEW visual cell */}
+                    <TableCell>
+                      <ResultCell rawResult={result} bounds={bounds} />
+                    </TableCell>
 
-        {showRangeSatisfaction && <TableCell>{rangeSat}</TableCell>}
-      </TableRow>
-    );
-  })}
-</TableBody>
-
-
+                    {showRangeSatisfaction && <TableCell>{rangeSat}</TableCell>}
+                  </TableRow>
+                );
+              })}
+            </TableBody>
           </Table>
         </TableContainer>
       </>
@@ -392,7 +661,12 @@ export default function ResultsPage() {
 
   return (
     <Container maxWidth="md" sx={{ mt: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={1}
+      >
         <Typography variant="h4" fontWeight="bold" gutterBottom>
           Results
         </Typography>
@@ -439,19 +713,21 @@ export default function ResultsPage() {
                 color="text.secondary"
                 style={{ whiteSpace: "pre-wrap" }}
               >
-                {`${agg.name}: ${String(agg.func).toUpperCase()} WHERE ${agg.predicate}`}
+                {`${agg.name}: ${String(agg.func).toUpperCase()} WHERE ${
+                  agg.predicate
+                }`}
               </Typography>
             ))
           )}
         </Paper>
 
         {/* <Grid container spacing={2}> */}
-          <Grid size={{ xs: 6 }}>
-            <Typography variant="h6">
-              Arithmetic Expression: {constraintExpr || "--"}
-            </Typography>
-          </Grid>
-          {/* <Grid size={{ xs: 6 }}>
+        <Grid size={{ xs: 6 }}>
+          <Typography variant="h6">
+            Arithmetic Expression: {constraintExpr || "--"}
+          </Typography>
+        </Grid>
+        {/* <Grid size={{ xs: 6 }}>
             <Typography variant="h6">
               Constraint Status: {constraint.actual}
               {constraint.satisfied ? (
@@ -469,9 +745,21 @@ export default function ResultsPage() {
         Top-k Repaired Queries
       </Typography>
 
-      {renderTopKTable("Fully (point estimates)", artifacts?.satisfied_conditions_ff || [], true, bounds)}
-{renderTopKTable("Ranges (interval estimates)", artifacts?.satisfied_conditions_rp || [], false, bounds)}
+      {renderTopKTable(
+        "Fully (point estimates)",
+        artifacts?.satisfied_conditions_ff || [],
+        true,
+        bounds,
+        maxSimFF
+      )}
 
+      {renderTopKTable(
+        "Ranges (interval estimates)",
+        artifacts?.satisfied_conditions_rp || [],
+        false,
+        bounds,
+        maxSimRP
+      )}
 
       <Divider sx={{ my: 3 }} />
 
@@ -491,8 +779,8 @@ export default function ResultsPage() {
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
             Combos: <strong>{isNaN(combinations) ? "—" : combinations}</strong>{" "}
-            · Fully time: <strong>{runtimeFF || "—"}s</strong>{" "}
-            · Ranges time: <strong>{runtimeRP || "—"}s</strong>
+            · Fully time: <strong>{runtimeFF || "—"}s</strong> · Ranges time:{" "}
+            <strong>{runtimeRP || "—"}s</strong>
           </Typography>
 
           {/* Runtime */}
@@ -500,11 +788,18 @@ export default function ResultsPage() {
             <Typography variant="body2" mb={0.5}>
               Runtime (s) - FF: {runtimeFF || "—"}
             </Typography>
-            <LinearProgress variant="determinate" value={asPercent(runtimeFF, runtimeMax)} />
+            <LinearProgress
+              variant="determinate"
+              value={asPercent(runtimeFF, runtimeMax)}
+            />
             <Typography variant="body2" mt={0.5}>
               Runtime (s) - RP: {runtimeRP || "—"}
             </Typography>
-            <LinearProgress variant="determinate" value={asPercent(runtimeRP, runtimeMax)} color="secondary" />
+            <LinearProgress
+              variant="determinate"
+              value={asPercent(runtimeRP, runtimeMax)}
+              color="secondary"
+            />
           </Box>
 
           {/* NCE */}
@@ -512,11 +807,18 @@ export default function ResultsPage() {
             <Typography variant="body2" mb={0.5}>
               NCE (checks) – FF: {nceFF}
             </Typography>
-            <LinearProgress variant="determinate" value={asPercent(nceFF, nceMax)} />
+            <LinearProgress
+              variant="determinate"
+              value={asPercent(nceFF, nceMax)}
+            />
             <Typography variant="body2" mt={0.5}>
               NCE (checks) – RP: {nceRP}
             </Typography>
-            <LinearProgress variant="determinate" value={asPercent(nceRP, nceMax)} color="secondary" />
+            <LinearProgress
+              variant="determinate"
+              value={asPercent(nceRP, nceMax)}
+              color="secondary"
+            />
           </Box>
 
           {/* NCA */}
@@ -524,11 +826,18 @@ export default function ResultsPage() {
             <Typography variant="body2" mb={0.5}>
               NCA (refinements) – FF: {ncaFF}
             </Typography>
-            <LinearProgress variant="determinate" value={asPercent(ncaFF, ncaMax)} />
+            <LinearProgress
+              variant="determinate"
+              value={asPercent(ncaFF, ncaMax)}
+            />
             <Typography variant="body2" mt={0.5}>
               NCA (refinements) – RP: {ncaRP}
             </Typography>
-            <LinearProgress variant="determinate" value={asPercent(ncaRP, ncaMax)} color="secondary" />
+            <LinearProgress
+              variant="determinate"
+              value={asPercent(ncaRP, ncaMax)}
+              color="secondary"
+            />
           </Box>
         </Box>
       )}
