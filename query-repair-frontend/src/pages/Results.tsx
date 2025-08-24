@@ -17,6 +17,7 @@ import {
 } from "@mui/material";
 import { CheckCircle, Cancel } from "@mui/icons-material";
 import { useLocation } from "react-router-dom";
+import { Chip, Tooltip } from "@mui/material";
 
 // -------- Types for /api/v1/results payload --------
 type ParsedResults = {
@@ -44,6 +45,192 @@ function rewriteQueryWithVector(originalSql: string, vectorText: string): string
     return `${left}${q}${next}${q}`;
   });
 }
+
+// ---------- Result visual helpers ----------
+type Bounds = { lb: number | null; ub: number | null };
+
+const clamp = (v: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
+const toPct = (v: number) => `${(v * 100).toFixed(2)}%`;
+
+// Parse something like "[0.0014, 10000000000000]" or "<= 0.02"
+function parseConstraintBounds(raw?: string): Bounds {
+  const s = String(raw ?? "").trim();
+  const nums = (s.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
+  if (nums.length >= 2) return { lb: nums[0], ub: nums[1] };
+  if (nums.length === 1) {
+    // If we only see one number, try to infer <= or >= from the text
+    if (/\<=|≤/.test(s)) return { lb: 0, ub: nums[0] };
+    if (/\>=|≥/.test(s)) return { lb: nums[0], ub: null };
+    // default treat as upper bound
+    return { lb: 0, ub: nums[0] };
+  }
+  // Fallback: typical SPD threshold 2%
+  return { lb: 0, ub: 0.02 };
+}
+
+function parseIntervalResult(raw: string): [number, number] | null {
+  const m = raw.match(/-?\d+(?:\.\d+)?/g);
+  if (!m || m.length < 2) return null;
+  const lo = Number(m[0]), hi = Number(m[1]);
+  if (Number.isFinite(lo) && Number.isFinite(hi)) return [lo, hi];
+  return null;
+}
+
+function computeStatusPoint(v: number, b: Bounds): "PASS" | "FAIL" {
+  const lbOk = b.lb == null || v >= b.lb!;
+  const ubOk = b.ub == null || v <= b.ub!;
+  return lbOk && ubOk ? "PASS" : "FAIL";
+}
+
+function computeStatusInterval(lo: number, hi: number, b: Bounds): "PASS" | "FAIL" | "INCONCLUSIVE" {
+  const definitelyBelow = b.lb != null && hi < b.lb!;
+  const definitelyAbove = b.ub != null && lo > b.ub!;
+  const definitelyInside =
+    (b.lb == null || lo >= b.lb!) &&
+    (b.ub == null || hi <= b.ub!);
+  if (definitelyInside) return "PASS";
+  if (definitelyBelow || definitelyAbove) return "FAIL";
+  return "INCONCLUSIVE";
+}
+
+// Choose a sensible max for the mini-bar domain
+function barDomainMax(value: number, b: Bounds): number {
+  // Prefer a small, readable range (e.g., up to the upper bound if it's < 1)
+  const candidates = [
+    value,
+    ...(b.lb != null ? [b.lb] : []),
+    ...(b.ub != null && b.ub < 1 ? [b.ub] : []),
+    0.05, // 5% default view window
+  ];
+  return Math.max(...candidates);
+}
+
+const passColor = (theme: any) => theme.palette.success.main;
+const failColor = (theme: any) => theme.palette.error.main;
+const warnColor = (theme: any) => theme.palette.warning.main;
+
+// ---------- Mini bar components ----------
+function PointResult({ value, bounds }: { value: number; bounds: Bounds }) {
+  if (!Number.isFinite(value)) return <span>—</span>;
+  const status = computeStatusPoint(value, bounds);
+  return (
+    <Box display="flex" flexDirection="column" gap={0.5}>
+      <Box display="flex" alignItems="center" gap={1}>
+        <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+          {toPct(value)}
+        </Typography>
+        <Chip
+          size="small"
+          label={status}
+          color={status === "PASS" ? "success" : "error"}
+          variant="outlined"
+        />
+      </Box>
+
+      {/* Mini bar */}
+      <MiniBar value={value} bounds={bounds} />
+    </Box>
+  );
+}
+
+function RangeResult({ lo, hi, bounds }: { lo: number; hi: number; bounds: Bounds }) {
+  const status = computeStatusInterval(lo, hi, bounds);
+  const chipColor = status === "PASS" ? "success" : status === "FAIL" ? "error" : "warning";
+  return (
+    <Box display="flex" flexDirection="column" gap={0.5}>
+      <Box display="flex" alignItems="center" gap={1}>
+        <Typography variant="body2" sx={{ fontFamily: "monospace" }}>
+          {toPct(lo)} – {toPct(hi)}
+        </Typography>
+        <Chip size="small" label={status} color={chipColor as any} variant="outlined" />
+      </Box>
+      <MiniBar range={[lo, hi]} bounds={bounds} />
+    </Box>
+  );
+}
+
+function MiniBar({
+  value,
+  range,
+  bounds,
+}: {
+  value?: number;
+  range?: [number, number];
+  bounds: Bounds;
+}) {
+  const domain = barDomainMax(range ? range[1] : (value ?? 0), bounds); // scale to max of hi/value
+  const pos = (x: number) => `${clamp(x / domain, 0, 1) * 100}%`;
+
+  return (
+    <Box sx={{ position: "relative", width: 180, height: 8, borderRadius: 4, bgcolor: "grey.300" }}>
+      {/* Lower bound marker (if in view) */}
+      {bounds.lb != null && bounds.lb <= domain && (
+        <Tooltip title={`Lower bound ${toPct(bounds.lb)}`}>
+          <Box sx={{
+            position: "absolute", left: pos(bounds.lb), top: 0, bottom: 0,
+            width: 2, bgcolor: "grey.600"
+          }} />
+        </Tooltip>
+      )}
+
+      {/* Upper bound marker (if in view) */}
+      {bounds.ub != null && bounds.ub <= domain && (
+        <Tooltip title={`Upper bound ${toPct(bounds.ub)}`}>
+          <Box sx={{
+            position: "absolute", left: pos(bounds.ub), top: 0, bottom: 0,
+            width: 2, bgcolor: "grey.600"
+          }} />
+        </Tooltip>
+      )}
+
+      {/* Value dot or interval span */}
+      {typeof value === "number" ? (
+        <Box sx={{
+          position: "absolute", left: pos(value), top: -3, width: 14, height: 14,
+          borderRadius: "50%",
+          bgcolor: (theme) => (computeStatusPoint(value, bounds) === "PASS" ? passColor(theme) : failColor(theme)),
+          transform: "translateX(-50%)"
+        }} />
+      ) : range ? (
+        <>
+          {/* Interval band */}
+          <Box sx={{
+            position: "absolute",
+            left: pos(range[0]),
+            width: `calc(${pos(range[1])} - ${pos(range[0])})`,
+            top: 2, height: 4,
+            bgcolor: (theme) => {
+              const s = computeStatusInterval(range[0], range[1], bounds);
+              return s === "PASS" ? passColor(theme) : s === "FAIL" ? failColor(theme) : warnColor(theme);
+            },
+            borderRadius: 2,
+          }} />
+          {/* End caps */}
+          <Box sx={{ position: "absolute", left: pos(range[0]), top: -2, width: 8, height: 8, borderRadius: "50%", bgcolor: "grey.700", transform: "translateX(-50%)" }} />
+          <Box sx={{ position: "absolute", left: pos(range[1]), top: -2, width: 8, height: 8, borderRadius: "50%", bgcolor: "grey.700", transform: "translateX(-50%)" }} />
+        </>
+      ) : null}
+    </Box>
+  );
+}
+
+// Wrapper used in the table cell
+function ResultCell({
+  rawResult,
+  bounds,
+}: {
+  rawResult: any;
+  bounds: Bounds;
+}) {
+  const text = String(rawResult ?? "");
+  const interval = parseIntervalResult(text);
+  if (interval) {
+    return <RangeResult lo={interval[0]} hi={interval[1]} bounds={bounds} />;
+  }
+  const num = Number(text);
+  return <PointResult value={num} bounds={bounds} />;
+}
+
 
 export default function ResultsPage() {
   const location = useLocation();
@@ -130,11 +317,17 @@ export default function ResultsPage() {
 
   const combinations = Number(anyRow?.["Combinations Num"] ?? 0);
 
+  // Pull bounds from RunInfo["Constraint"] if available; else fall back to a sane default
+  const constraintStr = String(anyRow?.["Constraint"] ?? "");
+  const bounds: Bounds = parseConstraintBounds(constraintStr);
+
+
   // --------- Render helpers ----------
   const renderTopKTable = (
     title: string,
     rows: { row: Record<string, any> }[],
-    showRangeSatisfaction: boolean
+    showRangeSatisfaction: boolean,
+    bounds: Bounds
   ) => {
     if (!rows?.length) {
       return (
@@ -164,13 +357,11 @@ export default function ResultsPage() {
             <TableBody>
   {rows.map((r, idx) => {
     const row = r.row || {};
-    const rawCond =
-      String(row["conditions"] ?? row["Conditions"] ?? "—"); // handle both keys
+    const rawCond = String(row["conditions"] ?? row["Conditions"] ?? "—");
     const similarity = row["Similarity"] ?? "—";
     const result = row["Result"] ?? "—";
     const rangeSat = row["Range Satisfaction"] ?? "—";
 
-    // Use the original query from state to rewrite thresholds
     const condSql = rewriteQueryWithVector(sqlQuery, rawCond);
 
     return (
@@ -180,12 +371,18 @@ export default function ResultsPage() {
           {condSql}
         </TableCell>
         <TableCell>{similarity}</TableCell>
-        <TableCell sx={{ fontFamily: "monospace" }}>{String(result)}</TableCell>
+
+        {/* NEW visual cell */}
+        <TableCell>
+          <ResultCell rawResult={result} bounds={bounds} />
+        </TableCell>
+
         {showRangeSatisfaction && <TableCell>{rangeSat}</TableCell>}
       </TableRow>
     );
   })}
 </TableBody>
+
 
           </Table>
         </TableContainer>
@@ -272,8 +469,9 @@ export default function ResultsPage() {
         Top-k Repaired Queries
       </Typography>
 
-      {renderTopKTable("Fully (point estimates)", artifacts?.satisfied_conditions_ff || [], true)}
-      {renderTopKTable("Ranges (interval estimates)", artifacts?.satisfied_conditions_rp || [], false)}
+      {renderTopKTable("Fully (point estimates)", artifacts?.satisfied_conditions_ff || [], true, bounds)}
+{renderTopKTable("Ranges (interval estimates)", artifacts?.satisfied_conditions_rp || [], false, bounds)}
+
 
       <Divider sx={{ my: 3 }} />
 
