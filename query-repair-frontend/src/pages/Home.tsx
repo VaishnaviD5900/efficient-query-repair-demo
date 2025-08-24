@@ -55,7 +55,12 @@ export default function Home() {
           and how they can be repaired using algorithms like Full Filtering and Range Pruning. 
           Upload a dataset, write query, define constraints, and visually explore how query repairs happen.
         </Typography>
-        <Button variant="contained" size="large" onClick={handleGetStarted}>
+        <Button variant="contained" size="large" onClick={handleGetStarted} 
+        sx={{
+          backgroundColor: "rgba(64, 82, 181, 0.8)",
+          color: "white",
+          "&:hover": { backgroundColor: "rgba(64, 82, 181, 1)" },
+        }}>
           Get started
         </Button>
       </Box>

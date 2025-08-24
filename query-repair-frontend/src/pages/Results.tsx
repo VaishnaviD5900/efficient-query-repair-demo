@@ -77,7 +77,7 @@ export default function ResultsPage() {
       try {
         setLoading(true);
         const res = await fetch(
-          `http://127.0.0.1:8000/api/v1/results?output_dir=${encodeURIComponent(outputDir)}`
+          `http://127.0.0.1:8000/api/v1/results?dataset=${datasetName}`
         );
         if (!res.ok) {
           const txt = await res.text();

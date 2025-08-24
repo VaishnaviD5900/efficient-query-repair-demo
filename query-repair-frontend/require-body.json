@@ -52,7 +52,7 @@
       {
         "field": "COW",
         "op": ">=",
-        "value": 3.0
+        "value": 3
       }
     ],
     "constraint_def": {
@@ -66,7 +66,7 @@
         "agg3": "count(\"SEX == 2 and PINCP >= 20000\")",
         "agg4": "count(\"SEX == 2\")"
       },
-      "expression": "0.0 <= (agg1 / agg2) - (agg3 / agg4) <= 0.2",
+      "expression": "  0.0014 <= (agg1 / agg2) - (agg3 / agg4) <= 10000000000000",
       "const_num": 3
     },
     "output_dir": "C:/Query-Repair-System/Exp"

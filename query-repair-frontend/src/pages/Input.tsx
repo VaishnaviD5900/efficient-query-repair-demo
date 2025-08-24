@@ -60,7 +60,7 @@ const datasetConfig: Dataset[] = [
   {
     id: "Healthcare",
     name: "Healthcare",
-    file: "/datasets/healthcare_800(in).csv",
+    file: "/datasets/healthcare_800_numerical.csv",
     size: 34,
   },
   {

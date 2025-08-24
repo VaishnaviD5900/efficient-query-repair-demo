@@ -1,5 +1,6 @@
 # app/api/v1/endpoints/results.py
 from __future__ import annotations
+import re
 
 from fastapi import APIRouter, HTTPException, Query
 from pathlib import Path
@@ -75,10 +76,20 @@ def _parse_run_info(df: pd.DataFrame) -> RunInfo:
         processing_time    = _to_float(row.get("Processing Time")),
     )
 
+def _escape_dataset(ds: str) -> str:
+    return re.escape(ds.strip())
+
+def _match(files: List[Path], pattern: str) -> Optional[Path]:
+    regex = re.compile(pattern, flags=re.IGNORECASE)
+    for p in sorted(files):
+        if p.suffix.lower() == ".csv" and regex.search(p.stem):
+            return p
+    return None
+
 # ---------- endpoint ----------
 @router.get("", response_model=ParsedResults)
 def get_results(
-    
+    dataset: str = Query(..., description="Dataset name to fetch results for")
 ) -> ParsedResults:
     """
     Read artifacts from an output dir and return structured JSON for the Results page.
@@ -90,10 +101,18 @@ def get_results(
 
     # search recursively (in case future runs write subfolders)
     files = [p for p in odir.rglob("*") if p.is_file()]
+    if not files:
+        raise HTTPException(status_code=404, detail=f"No files found in: {output_dir}")
 
-    run_info_path = _first([p for p in files if "Run_info" in p.name and p.suffix == ".csv"])
-    ff_path       = _first([p for p in files if "satisfied_conditions_Fully"  in p.name and p.suffix == ".csv"])
-    rp_path       = _first([p for p in files if "satisfied_conditions_Ranges" in p.name and p.suffix == ".csv"])
+    ds = _escape_dataset(dataset)
+
+    run_info_pattern = rf"run[_-]?info.*{ds}|{ds}.*run[_-]?info"
+    ff_pattern       = rf"satisfied[_-]?conditions[_-]?fully.*{ds}|{ds}.*satisfied[_-]?conditions[_-]?fully"
+    rp_pattern       = rf"satisfied[_-]?conditions[_-]?ranges.*{ds}|{ds}.*satisfied[_-]?conditions[_-]?ranges"
+
+    run_info_path = _match(files, run_info_pattern)
+    ff_path       = _match(files, ff_pattern)
+    rp_path       = _match(files, rp_pattern)
 
     run_info_df = _read_csv(run_info_path)
     ff_df       = _read_csv(ff_path)
