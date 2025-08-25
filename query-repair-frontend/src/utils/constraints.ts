@@ -2,15 +2,26 @@ export type Bounds = { lb: number | null; ub: number | null };
 
 export function parseConstraintBounds(raw?: string): Bounds {
   const s = String(raw ?? "").trim();
-  const nums = (s.match(/-?\d+(?:\.\d+)?/g) || []).map(Number);
-  if (nums.length >= 2) return { lb: nums[0], ub: nums[1] };
-  if (nums.length === 1) {
-    if (/\<=|≤/.test(s)) return { lb: 0, ub: nums[0] };
-    if (/\>=|≥/.test(s)) return { lb: nums[0], ub: null };
-    return { lb: 0, ub: nums[0] };
+  if (!s) return { lb: null, ub: null };
+
+  // Case 1: "[lb, ub]"
+  const arr = s.match(/^\s*\[\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s*,\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s*\]\s*$/);
+  if (arr) return { lb: Number(arr[1]), ub: Number(arr[2]) };
+
+  // Case 2: "lb <= ... <= ub" (supports < or <= and unicode ≤; also scientific notation)
+  const m = s.match(
+    /([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s*(?:<=|<|≤)\s*.+?\s*(?:<=|<|≤)\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)/,
+  );
+  if (m) return { lb: Number(m[1]), ub: Number(m[2]) };
+
+  // Fallback: first and last number if the format is unusual (keeps UI from breaking)
+  const nums = s.match(/-?\d*\.?\d+(?:[eE][-+]?\d+)?/g);
+  if (nums && nums.length >= 2) {
+    return { lb: Number(nums[0]), ub: Number(nums[nums.length - 1]) };
   }
-  return { lb: 0, ub: 0.02 };
+  return { lb: null, ub: null };
 }
+
 
 export const clamp = (v: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
 export const toPct = (v: number) => `${(v * 100).toFixed(2)}%`;

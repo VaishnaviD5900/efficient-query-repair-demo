@@ -78,9 +78,9 @@ export default function ResultsPage() {
   const matchingRunInfo = runInfoRows.filter((r) => signatureFromRunInfo(String(r["Query"] || "")) === sigSql);
 
   const hasRunMatch = matchingRunInfo.length > 0;
-  const fullyRow  = hasRunMatch ? matchingRunInfo.find((r) => (r["Type"] || r["type"]) === "Fully")  : undefined;
+  const fullyRow = hasRunMatch ? matchingRunInfo.find((r) => (r["Type"] || r["type"]) === "Fully") : undefined;
   const rangesRow = hasRunMatch ? matchingRunInfo.find((r) => (r["Type"] || r["type"]) === "Ranges") : undefined;
-  const anyRow    = hasRunMatch ? matchingRunInfo[0] : undefined;
+  const anyRow = hasRunMatch ? matchingRunInfo[0] : undefined;
 
   const runtimeFF = Number(fullyRow?.["Time"] ?? 0);
   const runtimeRP = Number(rangesRow?.["Time"] ?? 0);
@@ -105,7 +105,11 @@ export default function ResultsPage() {
 
   const combinations = Number(anyRow?.["Combinations Num"] ?? NaN);
 
-  const constraintStr = String(anyRow?.["Constraint"] ?? "");
+  const constraintStr = String(
+    anyRow?.["Arithmetic Expression"] ??
+    anyRow?.["Constraint"] ?? // keep as backup if your CSV still has this
+    ""
+  );
   const bounds: Bounds = parseConstraintBounds(constraintStr);
 
   const maxSimFF = getMaxSimilarity(artifacts?.satisfied_conditions_ff || [], sqlQuery);

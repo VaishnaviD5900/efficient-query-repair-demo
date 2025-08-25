@@ -3,17 +3,30 @@ import { parsePredicatesWithRhs, parseVectorNums } from "../../utils/query";
 
 type SimPart = { column: string; from: number | null; to: number | null; delta: number; sign: number };
 
+const EPS = 1e-9;
+const nearlyEqual = (a: number, b: number) => Math.abs(a - b) <= EPS;
+
 function computeSimilarityBreakdown(sql: string, vectorText: string): { total: number; parts: SimPart[] } {
   const preds = parsePredicatesWithRhs(sql);
   const vec = parseVectorNums(vectorText);
   const parts: SimPart[] = [];
-  for (let i = 0; i < Math.min(preds.length, vec.length); i++) {
-    const from = preds[i].rhs;
-    const to = vec[i];
-    const delta = from == null || !Number.isFinite(to) ? 0 : Math.abs(to - from);
-    const sign = from == null || !Number.isFinite(to) ? 0 : to - from;
-    parts.push({ column: preds[i].column, from, to, delta, sign });
+for (let i = 0; i < Math.min(preds.length, vec.length); i++) {
+  const from = preds[i].rhs;
+  const to = vec[i];
+
+  let delta = 0;
+  let sign = 0;
+
+  if (from != null && Number.isFinite(to)) {
+    if (!nearlyEqual(to, from)) {
+      const diff = to - from;
+      delta = Math.abs(diff);
+      sign = diff;
+    }
   }
+
+  parts.push({ column: preds[i].column, from, to, delta, sign });
+}
   const total = parts.reduce((s, p) => s + p.delta, 0);
   return { total, parts };
 }

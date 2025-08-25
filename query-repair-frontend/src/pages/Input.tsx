@@ -385,12 +385,12 @@ export default function InputPage() {
 
   const buildPredicate = (agg: Aggregation): string =>
     agg.predicates
-    .filter((p) => p.field && p.op && p.value)
-    .map((p) => {
-      const isNum = !isNaN(Number(p.value));
-      return `${p.field} ${p.op} ${isNum ? p.value : `'${p.value}'`}`;
-    })
-    .join(" and ");
+      .filter((p) => p.field && p.op && p.value)
+      .map((p) => {
+        const isNum = !isNaN(Number(p.value));
+        return `${p.field} ${p.op} ${isNum ? p.value : `'${p.value}'`}`;
+      })
+      .join(" and ");
 
   const generateSQLQuery = () => {
     const selectedDataset = datasetConfig.find(
@@ -596,8 +596,28 @@ export default function InputPage() {
               value={agg.func}
               {...guardHandlers}
               onChange={(e) => {
+                const fn = e.target.value as Aggregation["func"];
                 const updated = [...aggregations];
-                updated[index].func = e.target.value as Aggregation["func"];
+                updated[index].func = fn;
+
+                // If not "count", keep a single predicate and clear op/value
+                if (fn !== "count") {
+                  const first = updated[index].predicates[0] || {
+                    field: "",
+                    op: "",
+                    value: "",
+                  };
+                  updated[index].predicates = [
+                    { field: first.field, op: "", value: "" },
+                  ];
+                } else {
+                  // Ensure at least one predicate exists for count
+                  if (updated[index].predicates.length === 0) {
+                    updated[index].predicates = [
+                      { field: "", op: "", value: "" },
+                    ];
+                  }
+                }
                 setAggregations(updated);
               }}
               sx={{ width: 120 }}
@@ -608,6 +628,7 @@ export default function InputPage() {
                 </MenuItem>
               ))}
             </TextField>
+
             <IconButton
               {...guardHandlers}
               onClick={(e) => {
@@ -638,92 +659,121 @@ export default function InputPage() {
           </Box>
 
           {/* Aggregation Predicates */}
-          {agg.predicates.map((pred, predIndex) => (
-            <Box
-              key={predIndex}
-              display="flex"
-              alignItems="center"
-              gap={2}
-              mt={1}
-              ml={4}
-            >
-              <TextField
-                select
-                label="Field"
-                size="small"
-                value={pred.field}
-                {...guardHandlers}
-                onChange={(e) => {
-                  const updated = [...aggregations];
-                  updated[index].predicates[predIndex].field = e.target.value;
-                  setAggregations(updated);
-                }}
-                sx={{ minWidth: 210 }}
-              >
-                {columnOptions.map((col) => (
-                  <MenuItem key={col} value={col}>
-                    {col}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                select
-                label="Op"
-                size="small"
-                value={pred.op}
-                {...guardHandlers}
-                sx={{ width: 100 }}
-                onChange={(e) => {
-                  const updated = [...aggregations];
-                  updated[index].predicates[predIndex].op = e.target.value;
-                  setAggregations(updated);
-                }}
-              >
-                {(getOperatorsForField(pred.field) || []).map((op) => (
-                  <MenuItem key={op} value={op}>
-                    {op}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
-                label="Value"
-                size="small"
-                value={pred.value}
-                {...guardHandlers}
-                onChange={(e) => {
-                  const updated = [...aggregations];
-                  updated[index].predicates[predIndex].value = e.target.value;
-                  setAggregations(updated);
-                }}
-              />
-              <IconButton
-                {...guardHandlers}
-                onClick={(e) => {
-                  if (!ensureDatasetSelected(e)) return;
-                  const updated = [...aggregations];
-                  updated[index].predicates.push({
-                    field: "",
-                    op: "",
-                    value: "",
-                  });
-                  setAggregations(updated);
-                }}
-              >
-                <AddIcon />
-              </IconButton>
-              {agg.predicates.length > 1 && (
-                <IconButton
-                  onClick={() => {
-                    const updated = [...aggregations];
-                    updated[index].predicates.splice(predIndex, 1);
-                    setAggregations(updated);
-                  }}
+          {/* Aggregation Predicates */}
+          {(agg.func === "count" ? agg.predicates : [agg.predicates[0]]).map(
+            (pred, predIndex) => {
+              const isCount = agg.func === "count";
+              return (
+                <Box
+                  key={predIndex}
+                  display="flex"
+                  alignItems="center"
+                  gap={2}
+                  mt={1}
+                  ml={4}
                 >
-                  <RemoveIcon />
-                </IconButton>
-              )}
-            </Box>
-          ))}
+                  {/* FIELD (always shown) */}
+                  <TextField
+                    select
+                    label="Field"
+                    size="small"
+                    value={pred.field}
+                    {...guardHandlers}
+                    onChange={(e) => {
+                      const updated = [...aggregations];
+                      updated[index].predicates[predIndex].field =
+                        e.target.value;
+                      // if switching field for non-count, clear op/value (hidden anyway)
+                      if (!isCount) {
+                        updated[index].predicates[predIndex].op = "";
+                        updated[index].predicates[predIndex].value = "";
+                      }
+                      setAggregations(updated);
+                    }}
+                    sx={{ minWidth: 210 }}
+                  >
+                    {columnOptions.map((col) => (
+                      <MenuItem key={col} value={col}>
+                        {col}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+
+                  {/* OP + VALUE (count only) */}
+                  {isCount && (
+                    <>
+                      <TextField
+                        select
+                        label="Op"
+                        size="small"
+                        value={pred.op}
+                        {...guardHandlers}
+                        sx={{ width: 100 }}
+                        onChange={(e) => {
+                          const updated = [...aggregations];
+                          updated[index].predicates[predIndex].op =
+                            e.target.value;
+                          setAggregations(updated);
+                        }}
+                        disabled={!pred.field}
+                      >
+                        {(getOperatorsForField(pred.field) || []).map((op) => (
+                          <MenuItem key={op} value={op}>
+                            {op}
+                          </MenuItem>
+                        ))}
+                      </TextField>
+
+                      <TextField
+                        label="Value"
+                        size="small"
+                        value={pred.value}
+                        {...guardHandlers}
+                        onChange={(e) => {
+                          const updated = [...aggregations];
+                          updated[index].predicates[predIndex].value =
+                            e.target.value;
+                          setAggregations(updated);
+                        }}
+                      />
+                    </>
+                  )}
+
+                  {/* Row add/remove (count only) */}
+                  {isCount && (
+                    <>
+                      <IconButton
+                        {...guardHandlers}
+                        onClick={(e) => {
+                          if (!ensureDatasetSelected(e)) return;
+                          const updated = [...aggregations];
+                          updated[index].predicates.push({
+                            field: "",
+                            op: "",
+                            value: "",
+                          });
+                          setAggregations(updated);
+                        }}
+                      >
+                        <AddIcon />
+                      </IconButton>
+                      {agg.predicates.length > 1 && (
+                        <IconButton
+                          onClick={() => {
+                            const updated = [...aggregations];
+                            updated[index].predicates.splice(predIndex, 1);
+                            setAggregations(updated);
+                          }}
+                        >
+                          <RemoveIcon />
+                        </IconButton>
+                      )}
+                    </>
+                  )}
+                </Box>
+              );
+            }
+          )}
         </Box>
       ))}
 
@@ -830,10 +880,25 @@ export default function InputPage() {
             (d) => d.id === selectedDatasetId
           );
 
+          const getAggArg = (a: Aggregation) =>
+            a.func === "count"
+              ? a.predicates
+                  .filter((p) => p.field && p.op && p.value)
+                  .map((p) => {
+                    const isNum = !isNaN(Number(p.value));
+                    return `${p.field} ${p.op} ${
+                      isNum ? p.value : `'${p.value}'`
+                    }`;
+                  })
+                  .join(" and ")
+              : a.predicates[0]?.field || "";
+
           const aggregatedWithPredicates = aggregations.map((a) => ({
             ...a,
-            predicate: buildPredicate(a),
+            // for count => filter expression; others => just the field name
+            predicate: getAggArg(a),
           }));
+          
 
           // Persist UI context (optional)
           localStorage.setItem(
@@ -851,36 +916,32 @@ export default function InputPage() {
           );
 
           // ---- Build API payload
-// ---- Build API payload
-        const payload = {
-          dataName: selectedDataset?.id || "Unknown",
-          Top_k: topK,
-          predicates: constraints
-            .filter((c) => c.field && c.op && c.value)
-            .map((c) => ({
-              field: c.field,
-              op: c.op,
-              value: isNaN(Number(c.value)) ? c.value : Number(c.value), // convert numeric strings
-            })),
-          constraint_def: {
-            // Deduplicate columns
-            columns: Array.from(
-              new Set(
-                aggregations.flatMap((a) => a.predicates.map((p) => p.field))
-              )
-            ),
-            aggregations: aggregations.reduce((acc, a, idx) => {
-              const pred = buildPredicate(a);
-              acc[`agg${idx + 1}`] = `${a.func}(${pred ? `"${pred}"` : ""})`;
-              return acc;
-            }, {} as Record<string, string>),
-            expression: aggregateConstraintExpr,
-            const_num: 3,
-          },
-          output_dir: "C:/Query-Repair-System/Exp",
-        };
-
-
+          const payload = {
+            dataName: selectedDataset?.id || "Unknown",
+            Top_k: topK,
+            predicates: constraints
+              .filter((c) => c.field && c.op && c.value)
+              .map((c) => ({
+                field: c.field,
+                op: c.op,
+                value: isNaN(Number(c.value)) ? c.value : Number(c.value),
+              })),
+            constraint_def: {
+              columns: Array.from(
+                new Set(
+                  aggregations.flatMap((a) => a.predicates.map((p) => p.field))
+                )
+              ),
+              aggregations: aggregations.reduce((acc, a, idx) => {
+                const arg = getAggArg(a); // count: WHERE filter; others: field
+                acc[`agg${idx + 1}`] = `${a.func}(${arg ? `"${arg}"` : ""})`;
+                return acc;
+              }, {} as Record<string, string>),
+              expression: aggregateConstraintExpr,
+              const_num: 3,
+            },
+            output_dir: "C:/Query-Repair-System/Exp",
+          };
 
           try {
             setIsLoading(true);
