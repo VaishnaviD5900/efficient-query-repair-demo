@@ -21,7 +21,7 @@ export default function AppAlert({
     <Snackbar
       open={open}
       autoHideDuration={autoHideDuration ?? null}
-      // ⬇️ don't close on clickaway (the initial click that triggered the alert)
+      // don't close on clickaway (the initial click that triggered the alert)
       onClose={(_event, reason) => {
         if (reason === "clickaway") return;
         onClose();

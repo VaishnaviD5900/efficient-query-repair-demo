@@ -40,6 +40,78 @@
     "Top_k": 7,
     "predicates": [
       {
+        "field": "AGEP",
+        "op": ">=",
+        "value": 35
+      },
+      {
+        "field": "COW",
+        "op": ">=",
+        "value": 2
+      },
+      {
+        "field": "SCHL",
+        "op": "<=",
+        "value": 15
+      }
+    ],
+    "constraint_def": {
+      "columns": [
+        "RAC1P",
+        "PINCP"
+      ],
+      "aggregations": {
+        "agg1": "count(\"RAC1P == 1 and PINCP >= 10000\")",
+        "agg2":"count(\"RAC1P == 1\")",
+        "agg3": "count(\"RAC1P == 2 and PINCP >= 10000\")",
+        "agg4": "count(\"RAC1P == 2\")"
+      },
+      "expression": "  0.0014 <= (agg1 / agg2) - (agg3 / agg4) <= 10000000000000",
+      "const_num": 4
+    },
+    "output_dir": "C:/Query-Repair-System/Exp"
+  },
+  {
+    "dataName": "ACSIncome",
+    "Top_k": 7,
+    "predicates": [
+      {
+        "field": "WKHP",
+        "op": "<=",
+        "value": 40
+      },
+      {
+        "field": "SCHL",
+        "op": "<=",
+        "value": 19
+      },
+      {
+        "field": "COW",
+        "op": "<=",
+        "value": 4
+      }
+    ],
+    "constraint_def": {
+      "columns": [
+        "SEX",
+        "PINCP"
+      ],
+      "aggregations": {
+        "agg1": "count(\"SEX == 1 and PINCP >= 20000\")",
+        "agg2": "count(\"SEX == 1\")",
+        "agg3": "count(\"SEX == 2 and PINCP >= 20000\")",
+        "agg4": "count(\"SEX == 2\")"
+      },
+      "expression": "  0.0014 <= (agg1 / agg2) - (agg3 / agg4) <= 10000000000000",
+      "const_num": 3
+    },
+    "output_dir": "C:/Query-Repair-System/Exp"
+  },
+  {
+    "dataName": "ACSIncome",
+    "Top_k": 7,
+    "predicates": [
+      {
         "field": "WKHP",
         "op": ">=",
         "value": 30
@@ -101,6 +173,82 @@
         "agg2": "count(\"race == 1\")",
         "agg3": "count(\"race == 2 and label == 1\")",
         "agg4": "count(\"race == 2\")"
+      },
+      "expression": [
+        "0.0014 <= (agg1 / agg2) - (agg3 / agg4) <= 10000000000000"
+      ],
+      "const_num": 1
+    },
+    "output_dir": "C:/Query-Repair-System/Exp"
+  },
+  {
+    "dataName": "Healthcare",
+    "Top_k": 7,
+    "predicates": [
+      {
+        "field": "income",
+        "op": ">=",
+        "value": 300000
+      },
+      {
+        "field": "complications",
+        "op": ">=",
+        "value": 5
+      },
+      {
+        "field": "county",
+        "op": "==",
+        "value": 1
+      }
+    ],
+    "constraint_def": {
+      "columns": [
+        "ageGroup",
+        "label"
+      ],
+      "aggregations": {
+        "agg1": "count(\"ageGroup == 1 and label == 1\")",
+        "agg2": "count(\"ageGroup == 1\")",
+        "agg3": "count(\"ageGroup == 2 and label == 1\")",
+        "agg4": "count(\"ageGroup == 2\")"
+      },
+      "expression": [
+        "0.0014 <= (agg1 / agg2) - (agg3 / agg4) <= 10000000000000"
+      ],
+      "const_num": 1
+    },
+    "output_dir": "C:/Query-Repair-System/Exp"
+  },
+  {
+    "dataName": "Healthcare",
+    "Top_k": 7,
+    "predicates": [
+      {
+        "field": "income",
+        "op": ">=",
+        "value": 250
+      },
+      {
+        "field": "num-children",
+        "op": ">=",
+        "value": 3
+      },
+      {
+        "field": "county",
+        "op": "<=",
+        "value": 3
+      }
+    ],
+    "constraint_def": {
+      "columns": [
+        "ageGroup",
+        "label"
+      ],
+      "aggregations": {
+        "agg1": "count(\"ageGroup == 1 and label == 1\")",
+        "agg2": "count(\"ageGroup == 1\")",
+        "agg3": "count(\"ageGroup == 2 and label == 1\")",
+        "agg4": "count(\"ageGroup == 2\")"
       },
       "expression": [
         "0.0014 <= (agg1 / agg2) - (agg3 / agg4) <= 10000000000000"
