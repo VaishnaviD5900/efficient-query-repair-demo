@@ -1,3 +1,0 @@
-Data Name,Data Size,Query Num,Constraint Num,Type,Top-K,Combinations Num,Distance,Access Num,Checked Num,Refinement Num,Time,Constraint Width,Solutions Count,Constraint,Query,Range Evaluation Time,Division Time,Single Time,Processing Time
-ACSIncome,50000,1,3,Fully,7,17664,0.04,394899,7,7,1.935,10000000000000.0,7,"[0.0014, 10000000000000]","[['WKHP', '>=', 30.0, 'numerical'], ['SCHL', '>=', 12.0, 'numerical'], ['COW', '>=', 3.0, 'numerical']]", , , , 
-ACSIncome,50000,1,3,Ranges,7,17664,0.147,605697,26,6,8.435,10000000000000.0,0,"[0.0014, 10000000000000]","[['WKHP', '>=', 30.0, 'numerical'], ['SCHL', '>=', 12.0, 'numerical'], ['COW', '>=', 3.0, 'numerical']]",7.946,0.378,0.11,0.0

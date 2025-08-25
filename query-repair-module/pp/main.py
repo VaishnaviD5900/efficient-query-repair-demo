@@ -585,7 +585,7 @@ def main(dataName: str = "TPCH",
                                 #all_pred_possible_Ranges= ranges.generatePossibleValues_equalWidth2(df_original, op.getPredicateList(), sorted_possible_refinments1)  
                                 all_pred_possible_Ranges= ranges.generatePossibleValues_equalWidth1(df_original, op.getPredicateList(), sorted_possible_refinments1)                                  
                                 filter_ranges_partial = filtered_with_Ranges_generalize_topK1()
-                                filter_ranges_partial.check_predicates(statistical_tree, all_pred_possible_Ranges, sorted_possible_refinments1, expression, dataSize, dataName, k, op.getPredicateList(), query_num, const_num, constraint, combination, outputDirectory)
+                                filter_ranges_partial.check_predicates(statistical_tree, all_pred_possible_Ranges, sorted_possible_refinments1, expression, dataSize, dataName, k, op.getPredicateList(), query_num, const_num, constraint, combination, outputDirectory, bucket, branch)
                                 
                                 print("\n\n-----------------------------------------\n")
 

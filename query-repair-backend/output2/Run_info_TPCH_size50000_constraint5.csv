@@ -1,0 +1,5 @@
+Data Name,Data Size,Query Num,Constraint Num,Type,Top-K,Combinations Num,Distance,Access Num,Checked Num,Refinement Num,Time,Constraint Width,Solutions Count,Constraint,Query,Range Evaluation Time,Division Time,Single Time,Processing Time
+TPCH,50000,1,5,Fully,7,37500,100.0,2606824666,37500,0,6917.637,10000000000000.0,0,"[0.0014, 10000000000000]","[['p_size', '>=', 10.0, 'numerical'], ['p_type', '==', 20.0, 'numerical'], ['r_name', '==', 4.0, 'numerical']]", , , , 
+TPCH,50000,1,5,Ranges,7,37500,2.059,10788893,772,0,104.127,10000000000000.0,0,"[0.0014, 10000000000000]","[['p_size', '>=', 10.0, 'numerical'], ['p_type', '==', 20.0, 'numerical'], ['r_name', '==', 4.0, 'numerical']]",31.314,12.411,0,0.008
+TPCH,50000,1,5,Fully,7,37500,100.0,2606824666,37500,0,7698.27,10000000000000.0,0,"[0.0014, 10000000000000]","[['p_size', '>=', 10.0, 'numerical'], ['p_type', '==', 20.0, 'numerical'], ['r_name', '==', 4.0, 'numerical']]", , , , 
+TPCH,50000,1,5,Ranges,7,37500,2.059,10788893,772,0,86.688,10000000000000.0,0,"[0.0014, 10000000000000]","[['p_size', '>=', 10.0, 'numerical'], ['p_type', '==', 20.0, 'numerical'], ['r_name', '==', 4.0, 'numerical']]",26.223,10.55,0,0.007

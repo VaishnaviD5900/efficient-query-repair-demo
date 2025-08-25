@@ -13,6 +13,63 @@ from itertools import product, tee
 import heapq
 import os
 
+import json, hashlib  # add with your other imports
+
+def make_range_cache_key(dataName, dataSize, bucket, branch, ranges, operators):
+    """
+    Build a stable cache key for an RP filtering step.
+    `ranges` is a sequence of dicts like {'range': (lo, hi), 'min_distance': ...}
+    """
+    norm_ranges = []
+    for r in ranges:
+        lo, hi = r['range']
+        norm_ranges.append([float(lo), float(hi)])
+    payload = {
+        "dataName": dataName,
+        "dataSize": int(dataSize),
+        "bucket": int(bucket),
+        "branch": int(branch),
+        "ranges": norm_ranges,                 # in predicate order
+        "operators": list(operators),          # in predicate order
+        "version": 1                           # bump if you change representation
+    }
+    s = json.dumps(payload, sort_keys=True)
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+def load_cached_clusters(cache_file, cluster_map):
+    """
+    Rebuild list of clusters (with Satisfy flag) from CSV cache.
+    Returns list[dict] or None if cache missing/bad.
+    """
+    if not os.path.exists(cache_file):
+        return None
+    try:
+        df = pd.read_csv(cache_file)
+    except Exception:
+        return None
+    out = []
+    for _, row in df.iterrows():
+        key = (int(row["Level"]), int(row["Cluster Id"]))
+        info = cluster_map.get(key)
+        if info is not None:
+            info['Satisfy'] = row.get("Satisfy", "")
+            out.append(info)
+    return out
+
+def save_clusters_cache(cache_file, clusters):
+    """
+    Save Level/Cluster Id/Satisfy for later reconstruction.
+    """
+    os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+    recs = []
+    for c in clusters:
+        recs.append({
+            "Level": c['Level'],
+            "Cluster Id": c['Cluster Id'],
+            "Satisfy": c.get('Satisfy', "")
+        })
+    pd.DataFrame(recs).to_csv(cache_file, index=False)
+
 class filtered_with_Ranges_generalize_topK1:
     def __init__(self):
         self.distance_cache = {}
@@ -102,7 +159,8 @@ class filtered_with_Ranges_generalize_topK1:
         #combination_time += time.time() - start_time
         return Concrete_values_list, concrete_counter, combination_time
 
-    def check_predicates(self, statistical_tree, all_pred_possible_Ranges, sorted_possible_refinments, expression, datasize, dataName, result_num, UserpredicateList, query_num, const_num, constraint, combination, outputDirectory):
+    def check_predicates(self, statistical_tree, all_pred_possible_Ranges, sorted_possible_refinments, expression, datasize, dataName, result_num, UserpredicateList, query_num, const_num, constraint, combination, outputDirectory, bucket,
+    branch ):
         Concrete_values_list = []
         combination_time = 0
         solutions_count = 0
@@ -160,11 +218,24 @@ class filtered_with_Ranges_generalize_topK1:
             if any(r['range'][0] != r['range'][1] for r in current_ranges):
                 processing_time1 += (time.time() - processing_start_time1)
                 full_start_time = time.time()
+                
+                cache_id = make_range_cache_key(dataName, datasize, bucket, branch, current_ranges, operators_list)
+                cache_file = os.path.join("cache", f"rp_filtered_{cache_id}.csv")
 
-                for root_key in root_clusters:
-                    filtered_clusters_list_df, counter, child_counter = self.filter_clusters_partial_modified(
-                        root_key, parent_child_map, cluster_map, filtered_clusters,
-                        current_ranges, operators_list, counter, child_counter)
+                filtered_clusters = load_cached_clusters(cache_file, cluster_map)
+                if filtered_clusters is None:
+                    # print("Not in cache")
+                    filtered_clusters = []
+                    for root_key in root_clusters:
+                        filtered_clusters_list_df, counter, child_counter = self.filter_clusters_partial_modified(
+                            root_key, parent_child_map, cluster_map, filtered_clusters,
+                            current_ranges, operators_list, counter, child_counter)
+                    # Persist cache
+                    save_clusters_cache(cache_file, filtered_clusters)
+                else:
+                    # print("In cache")
+                    # cache hit
+                    filtered_clusters_list_df = filtered_clusters
                 
                 check_counter += 1
                 if dataName == "TPCH":
@@ -227,11 +298,21 @@ class filtered_with_Ranges_generalize_topK1:
                         Division_time += (time.time() - p_start_time)
             else: # If the range is minimal, no need to divide and filter fully
                 single_start_time = time.time()
-                filtered_clusters = []
-                for root_key in root_clusters:
-                    filtered_clusters_list_df, counter = self.filter_fully.filter_clusters_Hash(
-                        root_key, cluster_map, [range['range'][0] for range in current_ranges], operators_list, 
-                        filtered_clusters, counter, parent_child_map)
+                cache_id = make_range_cache_key(dataName, datasize, bucket, branch, current_ranges, operators_list)
+                cache_file = os.path.join("cache", f"rp_filtered_{cache_id}.csv")
+
+                filtered_clusters = load_cached_clusters(cache_file, cluster_map)
+                if filtered_clusters is None:
+                    # print("Not in cache")
+                    filtered_clusters = []
+                    for root_key in root_clusters:
+                        filtered_clusters_list_df, counter = self.filter_fully.filter_clusters_Hash(
+                            root_key, cluster_map, [range['range'][0] for range in current_ranges], operators_list, 
+                            filtered_clusters, counter, parent_child_map)
+                    save_clusters_cache(cache_file, filtered_clusters)
+                else:
+                    # print("In cache")
+                    filtered_clusters_list_df = filtered_clusters
 
                 check_counter += 1
                 if dataName == "TPCH":

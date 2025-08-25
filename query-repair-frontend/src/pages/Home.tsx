@@ -21,7 +21,7 @@ export default function Home() {
     {
       title: 'Analyze',
       description:
-        'Upload a dataset and write an SQL query with aggregate constraints. The system analyzes your input and checks for violations.',
+        'Select a dataset and write an SQL query with aggregate constraints. The system analyzes your input and checks for violations.',
       Icon: SearchOutlinedIcon,
     },
     {

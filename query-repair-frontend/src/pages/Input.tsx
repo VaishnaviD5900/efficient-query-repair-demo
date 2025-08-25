@@ -258,7 +258,8 @@ export default function InputPage() {
         r_name: supRegion?.r_name,
         l_partkey: li.l_partkey,
         l_suppkey: li.l_suppkey,
-
+        Revenue: li.Revenue,
+        "Revenue all": li["Revenue all"],
         // --- Extra context columns (prefixed) ---
         ...withPrefix(
           prt && {
@@ -320,6 +321,8 @@ export default function InputPage() {
             l_quantity: li.l_quantity,
             l_extendedprice: li.l_extendedprice,
             l_discount: li.l_discount,
+            // revenue: li.Revenue,
+            // revenue_all: li["Revenue all"],
           },
           "lineitem_"
         ),
@@ -937,7 +940,7 @@ export default function InputPage() {
                 acc[`agg${idx + 1}`] = `${a.func}(${arg ? `"${arg}"` : ""})`;
                 return acc;
               }, {} as Record<string, string>),
-              expression: aggregateConstraintExpr,
+              expression: selectedDataset?.id =="TPCH" ? [aggregateConstraintExpr]:aggregateConstraintExpr,
               const_num: 3,
             },
             output_dir: "C:/Query-Repair-System/Exp",
