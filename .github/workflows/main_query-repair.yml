@@ -7,6 +7,7 @@ on:
       - 'query-repair-backend/**'
       - 'query-repair-module/**'
       - 'requirements.txt'
+      - 'startup.txt'
   workflow_dispatch:
 
 jobs:
@@ -14,11 +15,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
-      # Deploy the entire repo so the sibling module is present on the server
+      # Zip the ENTIRE repo so both backend and module are included
+      - name: Create deployment zip (repo root)
+        run: |
+          zip -r deploy.zip . -x "*.git*" "*/__pycache__/*"
+
       - name: Deploy to Azure Web App (Publish Profile)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: query-repair                # your web app name
+          app-name: query-repair
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-          package: .                            # deploy repo root
+          package: deploy.zip
