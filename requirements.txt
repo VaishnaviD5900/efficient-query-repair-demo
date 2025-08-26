@@ -1,0 +1,4 @@
+# /requirements.txt  (root)
+-r query-repair-backend/requirements.txt
+# If the module has its own reqs, also include:
+# -r query-repair-module/requirements.txt

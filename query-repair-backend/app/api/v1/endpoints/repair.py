@@ -15,7 +15,7 @@ router = APIRouter()
 
 # ---- configure where the external query-repair project lives ----
 # folder that contains that project's main.py
-QR_PROJECT_DIR = Path(r"C:/Query-Repair-System/efficient-query-repair-demo/query-repair-module/pp")
+QR_PROJECT_DIR = Path(__file__).resolve().parents[5] / "query-repair-module" / "pp"
 
 # add to import path once
 if str(QR_PROJECT_DIR) not in sys.path:
@@ -65,7 +65,7 @@ def run_repair(req: RepairRequest) -> RepairResult:
 
     # where to look for results;
     # use payload if provided, else default to the constant used in your main.py
-    output_dir = Path(req.output_dir or r"C:/Query-Repair-System/efficient-query-repair-demo/query-repair-backend/output")
+    output_dir = Path(req.output_dir or (Path(__file__).resolve().parents[5] / "query-repair-backend" / "output"))
 
     try:
         # Call external main(). Your patched main signature:
