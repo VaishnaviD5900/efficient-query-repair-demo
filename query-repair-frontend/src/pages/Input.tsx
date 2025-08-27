@@ -13,6 +13,9 @@ import {
   Button,
   CircularProgress,
   MenuItem,
+  Backdrop,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
 
 // Icons
@@ -131,6 +134,8 @@ export default function InputPage() {
   const [columnTypes, setColumnTypes] = useState<Record<string, string>>({});
   const navigate = useNavigate();
   const [topK, setTopK] = useState<number>(7);
+  const [isRepairing, setIsRepairing] = useState(false);
+  const [showSchema, setShowSchema] = useState(false);
 
   // Alerts
   const [alertOpen, setAlertOpen] = useState(false);
@@ -505,11 +510,27 @@ export default function InputPage() {
       )}
 
       {!isLoading && datasetPreview.length > 0 && (
-        <>
-          <DatasetSchema data={datasetPreview} />
-          <DatasetPreview data={datasetPreview} />
-        </>
-      )}
+  <>
+    <Box display="flex" justifyContent="flex-end" mb={1}>
+      <FormControlLabel
+        control={
+          <Switch
+            checked={showSchema}
+            onChange={(e) => setShowSchema(e.target.checked)}
+          />
+        }
+        label={showSchema ? "View Preview" : "View Schema"}
+      />
+    </Box>
+
+    {showSchema ? (
+      <DatasetSchema data={datasetPreview} />
+    ) : (
+      <DatasetPreview data={datasetPreview} />
+    )}
+  </>
+)}
+
 
       <Typography variant="h6" gutterBottom>
         Input SQL Query
@@ -814,6 +835,8 @@ export default function InputPage() {
 
       <Button
         variant="contained"
+        disabled={isRepairing}
+        endIcon={isRepairing ? <CircularProgress size={16} /> : null}
         sx={{
           mt: 3,
           backgroundColor: "rgba(64, 82, 181, 0.8)",
@@ -907,7 +930,7 @@ export default function InputPage() {
           };
 
           try {
-            setIsLoading(true);
+            setIsRepairing(true);
 
             const res = await fetch("http://127.0.0.1:8000/api/v1/repair/run", {
               method: "POST",
@@ -938,12 +961,21 @@ export default function InputPage() {
             setAlertMsg(`Repair failed: ${err.message || err}`);
             setAlertOpen(true);
           } finally {
-            setIsLoading(false);
+            setIsRepairing(false);
           }
         }}
       >
         Run Repair
       </Button>
+      <Backdrop
+        open={isRepairing}
+        sx={{ color: "#fff", zIndex: (t) => t.zIndex.drawer + 1 }}
+      >
+        <Box display="flex" flexDirection="column" alignItems="center" gap={1}>
+          <CircularProgress color="inherit" />
+          <Typography variant="body2">Running repair…</Typography>
+        </Box>
+      </Backdrop>
     </Container>
   );
 }
