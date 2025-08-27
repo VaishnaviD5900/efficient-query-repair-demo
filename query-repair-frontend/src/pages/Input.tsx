@@ -510,27 +510,36 @@ export default function InputPage() {
       )}
 
       {!isLoading && datasetPreview.length > 0 && (
-  <>
-    <Box display="flex" justifyContent="flex-end" mb={1}>
-      <FormControlLabel
-        control={
-          <Switch
-            checked={showSchema}
-            onChange={(e) => setShowSchema(e.target.checked)}
-          />
-        }
-        label={showSchema ? "View Preview" : "View Schema"}
-      />
-    </Box>
+        <>
+          <Box display="flex" justifyContent="flex-end" mb={1}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={showSchema}
+                  sx={{
+                    // thumb when checked
+                    "& .MuiSwitch-switchBase.Mui-checked": {
+                      color: "rgba(64, 82, 181, 0.8)",
+                    },
+                    // track when checked
+                    "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": {
+                      backgroundColor: "rgba(64, 82, 181, 0.8)",
+                    },
+                  }}
+                  onChange={(e) => setShowSchema(e.target.checked)}
+                />
+              }
+              label={showSchema ? "View Preview" : "View Schema"}
+            />
+          </Box>
 
-    {showSchema ? (
-      <DatasetSchema data={datasetPreview} />
-    ) : (
-      <DatasetPreview data={datasetPreview} />
-    )}
-  </>
-)}
-
+          {showSchema ? (
+            <DatasetSchema data={datasetPreview} />
+          ) : (
+            <DatasetPreview data={datasetPreview} />
+          )}
+        </>
+      )}
 
       <Typography variant="h6" gutterBottom>
         Input SQL Query
