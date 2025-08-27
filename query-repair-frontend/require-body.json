@@ -149,44 +149,6 @@
     "predicates": [
       {
         "field": "income",
-        "op": "<=",
-        "value": 100000
-      },
-      {
-        "field": "complications",
-        "op": ">=",
-        "value": 5
-      },
-      {
-        "field": "num-children",
-        "op": ">=",
-        "value": 4
-      }
-    ],
-    "constraint_def": {
-      "columns": [
-        "race",
-        "label"
-      ],
-      "aggregations": {
-        "agg1": "count(\"race == 1 and label == 1\")",
-        "agg2": "count(\"race == 1\")",
-        "agg3": "count(\"race == 2 and label == 1\")",
-        "agg4": "count(\"race == 2\")"
-      },
-      "expression": [
-        "0.0014 <= (agg1 / agg2) - (agg3 / agg4) <= 10000000000000"
-      ],
-      "const_num": 1
-    },
-    "output_dir": "C:/Query-Repair-System/Exp"
-  },
-  {
-    "dataName": "Healthcare",
-    "Top_k": 7,
-    "predicates": [
-      {
-        "field": "income",
         "op": ">=",
         "value": 300000
       },

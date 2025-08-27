@@ -14,6 +14,7 @@ import {
   CircularProgress,
   MenuItem,
 } from "@mui/material";
+
 // Icons
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
@@ -811,55 +812,6 @@ export default function InputPage() {
         sx={{ display: "block" }}
       />
 
-      {/* <Button
-        variant="contained"
-        sx={{
-          mt: 3,
-          backgroundColor: "rgba(64, 82, 181, 0.8)",
-          color: "white",
-          "&:hover": { backgroundColor: "rgba(64, 82, 181, 1)" },
-        }}
-        onClick={(e) => {
-          if (!ensureDatasetSelected(e)) return;
-
-          const query = generateSQLQuery();
-          const selectedDataset = datasetConfig.find(
-            (d) => d.id === selectedDatasetId
-          );
-
-          const aggregatedWithPredicates = aggregations.map((a) => ({
-            ...a,
-            predicate: buildPredicate(a),
-          }));
-
-          localStorage.setItem(
-            "queryRepairData",
-            JSON.stringify({
-              datasetId: selectedDataset?.id || null,
-              datasetName: selectedDataset?.name || null,
-              size: selectedDataset?.size || 0,
-              columnCount: Object.keys(columnTypes).length,
-              sqlQuery: query,
-              aggregations: aggregatedWithPredicates,
-              constraintExpr: aggregateConstraintExpr,
-              topK,
-            })
-          );
-
-          navigate("/results", {
-            state: {
-              datasetName: selectedDataset?.name || "Unknown",
-              size: selectedDataset?.size || 0,
-              columnCount: Object.keys(columnTypes).length,
-              query,
-              topK,
-            },
-          });
-        }}
-      >
-        Run Repair
-      </Button> */}
-
       <Button
         variant="contained"
         sx={{
@@ -874,6 +826,12 @@ export default function InputPage() {
           // quick guard for topK
           if (topK < 1) {
             setAlertMsg("Top-K must be at least 1.");
+            setAlertOpen(true);
+            return;
+          }
+
+          if (!aggregateConstraintExpr.trim()) {
+            setAlertMsg("Please enter Constraint Expression");
             setAlertOpen(true);
             return;
           }
@@ -901,7 +859,6 @@ export default function InputPage() {
             // for count => filter expression; others => just the field name
             predicate: getAggArg(a),
           }));
-          
 
           // Persist UI context (optional)
           localStorage.setItem(
@@ -940,7 +897,10 @@ export default function InputPage() {
                 acc[`agg${idx + 1}`] = `${a.func}(${arg ? `"${arg}"` : ""})`;
                 return acc;
               }, {} as Record<string, string>),
-              expression: selectedDataset?.id =="TPCH" ? [aggregateConstraintExpr]:aggregateConstraintExpr,
+              expression:
+                selectedDataset?.id == "TPCH"
+                  ? [aggregateConstraintExpr]
+                  : aggregateConstraintExpr,
               const_num: 3,
             },
             output_dir: "C:/Query-Repair-System/Exp",

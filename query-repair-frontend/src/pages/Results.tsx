@@ -159,7 +159,7 @@ export default function ResultsPage() {
       {/* Top-k tables */}
       <Typography variant="h6" gutterBottom>Top-k Repaired Queries</Typography>
       <TopKTable
-        title="Fully (point estimates)"
+        title="Full Filtering (point estimates)"
         rows={artifacts?.satisfied_conditions_ff || []}
         showRangeSatisfaction
         sqlQuery={sqlQuery}
@@ -167,7 +167,7 @@ export default function ResultsPage() {
         maxSim={maxSimFF}
       />
       <TopKTable
-        title="Ranges (interval estimates)"
+        title="Range Pruning (interval estimates)"
         rows={artifacts?.satisfied_conditions_rp || []}
         showRangeSatisfaction={false}
         sqlQuery={sqlQuery}
