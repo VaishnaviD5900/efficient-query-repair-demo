@@ -15,19 +15,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Make deploy package
+      - name: Build deploy package
         run: |
           mkdir -p package
           rsync -a --delete --exclude="__pycache__" query-repair-backend/ package/query-repair-backend/
           rsync -a --delete --exclude="__pycache__" query-repair-module/   package/query-repair-module/
-          # Root requirements for Oryx (editable path must be inside the zip)
-          sed 's|-e ../query-repair-module|-e ./query-repair-module|g' query-repair-backend/requirements.txt > package/requirements.txt
-          # Remove backend requirements so Oryx can't pick the wrong one
+
+          # Create a ROOT requirements.txt for Oryx to use
+          # Start from backend requirements but strip any editable line (if it sneaks back),
+          # then append the correct editable path INSIDE the zip
+          grep -v "^-e ..\/query-repair-module$" query-repair-backend/requirements.txt > package/requirements.txt
+          echo "-e ./query-repair-module" >> package/requirements.txt
+
+          # Ensure Oryx won't pick the backend's copy by accident
           rm -f package/query-repair-backend/requirements.txt
 
       - name: Deploy to Azure Web App (publish profile)
         uses: azure/webapps-deploy@v3
         with:
-          app-name: query-repair                # <- your exact App Service name
+          app-name: query-repair                 # <-- your exact App Service name
           package: package
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
