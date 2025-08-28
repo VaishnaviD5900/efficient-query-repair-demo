@@ -3,6 +3,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.api import api_router
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Explicit path to .../query-repair-backend/.env
+ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
+load_dotenv(ENV_PATH, override=True)
 
 app = FastAPI(
     title="Efficient Query Repair API",

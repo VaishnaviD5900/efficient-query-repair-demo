@@ -8,27 +8,10 @@ from pathlib import Path
 import sys
 import traceback
 import pandas as pd
-
+from query_repair_module.pp import main as qr_main
 from app.models.schemas import RepairRequest, RepairResult
 
 router = APIRouter()
-
-# ---- configure where the external query-repair project lives ----
-# folder that contains that project's main.py
-QR_PROJECT_DIR = Path(__file__).resolve().parents[5] / "query-repair-module" / "pp"
-
-# add to import path once
-if str(QR_PROJECT_DIR) not in sys.path:
-    sys.path.insert(0, str(QR_PROJECT_DIR))
-
-try:
-    # import the external main.py (it should expose a function `main(...)`)
-    import main as qr_main  # type: ignore
-except Exception as e:
-    # if this import fails at startup, the endpoint will 500 with a clearer message
-    print("Failed to import external query-repair main.py:", e)
-    qr_main = None  # sentinel so we can error nicely later
-
 
 def _read_results_from_output_dir(output_dir: Path, max_csv_preview_rows: int = 5) -> Dict[str, Any]:
     """
@@ -70,7 +53,7 @@ def run_repair(req: RepairRequest) -> RepairResult:
     try:
         # Call external main(). Your patched main signature:
         #   main(dataName: str, Top_k: int, predicates: list[dict], constraint_def: dict)
-        qr_main.main(
+        qr_main(
             dataName=req.dataName,
             Top_k=req.Top_k,
             predicates=[p.model_dump() for p in req.predicates],
