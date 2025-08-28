@@ -1,0 +1,38 @@
+name: Deploy FastAPI backend to Azure App Service
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'query-repair-backend/**'
+      - 'query-repair-module/**'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AZURE_WEBAPP_NAME: your-appservice-name
+      PYTHON_VERSION: '3.11'
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build the deployable package: include BOTH backend and module
+      - name: Make deploy package
+        run: |
+          mkdir -p package
+          rsync -a --delete --exclude="__pycache__" query-repair-backend/ package/query-repair-backend/
+          rsync -a --delete --exclude="__pycache__" query-repair-module/   package/query-repair-module/
+          # Create a requirements.txt at package root for Oryx (server-side build)
+          # Replace -e ../query-repair-module with -e ./query-repair-module
+          sed 's|-e ../query-repair-module|-e ./query-repair-module|g' query-repair-backend/requirements.txt > package/requirements.txt
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          package: package

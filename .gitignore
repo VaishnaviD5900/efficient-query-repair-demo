@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+.eggs/
+**build/
+dist/
+.cache/
+.pytest_cache/
+.mypy_cache/
+*.pyo
+*.pyd
+
+# Virtual envs
+venv/
+env/
+.venv/
+
+# Editors/OS junk
+.vscode/
+.idea/
+.DS_Store
+*.sw?
+
+# Frontend (if present)
+node_modules/
+.next/
+out/
+dist/
