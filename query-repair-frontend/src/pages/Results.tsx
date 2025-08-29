@@ -161,7 +161,7 @@ export default function ResultsPage() {
       <TopKTable
         title="Full Filtering (point estimates)"
         rows={artifacts?.satisfied_conditions_ff || []}
-        showRangeSatisfaction
+        showRangeSatisfaction={false}
         sqlQuery={sqlQuery}
         bounds={bounds}
         maxSim={maxSimFF}
