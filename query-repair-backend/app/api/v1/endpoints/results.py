@@ -1,5 +1,6 @@
 # app/api/v1/endpoints/results.py
 from __future__ import annotations
+import os
 import re
 
 from fastapi import APIRouter, HTTPException, Query
@@ -94,8 +95,8 @@ def get_results(
     """
     Read artifacts from an output dir and return structured JSON for the Results page.
     """
-    output_dir = "C:/Query-Repair-System/efficient-query-repair-demo/query-repair-backend/output"
-    odir = Path(output_dir)
+    DEFAULT_OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "./output")).resolve() 
+    odir = DEFAULT_OUTPUT_DIR
     if not odir.exists():
         raise HTTPException(status_code=404, detail=f"Output dir not found: {output_dir}")
 
