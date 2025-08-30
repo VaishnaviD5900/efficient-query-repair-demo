@@ -1,5 +1,5 @@
 # app/models/schemas.py
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field
 
 
@@ -21,14 +21,16 @@ class RepairRequest(BaseModel):
     Top_k: int = 7
     predicates: List[Predicate]
     constraint_def: ConstraintDef
-    output_dir: str
+    output_dir: Optional[str] = None   # <- change
 
 
 class RepairResult(BaseModel):
-    status: str = "ok"
+    ok: bool = True
+    message: str = "Repair run completed."
     output_dir: Optional[str] = None
     files: Optional[List[str]] = None
-    note: Optional[str] = None
+    previews: Optional[Dict[str, List[Dict[str, Any]]]] = None
+
 
 # ---------- parsed artifacts for Results page ----------
 
@@ -60,9 +62,22 @@ class RunInfo(BaseModel):
 class SatisfiedRow(BaseModel):
     row: Dict[str, Any]
 
+
 class ParsedResults(BaseModel):
     output_dir: str
-    run_info: List = []
-    satisfied_conditions_ff: List[SatisfiedRow] = []
-    satisfied_conditions_rp: List[SatisfiedRow] = []
-    raw_files: List[str] = []
+    run_info: List[RunInfo] = Field(default_factory=list)
+    satisfied_conditions_ff: List[SatisfiedRow] = Field(default_factory=list)
+    satisfied_conditions_rp: List[SatisfiedRow] = Field(default_factory=list)
+    raw_files: List[str] = Field(default_factory=list)
+
+class JobAccepted(BaseModel):
+    job_id: str
+    status_url: str
+    message: str = "Accepted"
+
+# Polled by GET /repair/status/{job_id}
+class JobStatus(BaseModel):
+    job_id: str
+    status: Literal["running", "done", "error", "unknown"]
+    result: Optional["RepairResult"] = None  # forward-ref to your existing model
+    error: Optional[str] = None
