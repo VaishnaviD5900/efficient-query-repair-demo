@@ -176,7 +176,7 @@ export default function InputPage() {
 
   async function pollStatus(
     fullStatusUrl: string,
-    { interval = 180_000, timeout = 90 * 60_000 } = {} 
+    { interval = 120_000, timeout = 90 * 60_000 } = {} 
   ) {
     const start = Date.now();
     while (true) {
