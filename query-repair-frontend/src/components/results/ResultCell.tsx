@@ -1,7 +1,7 @@
 import { Box, Chip, Tooltip, Typography } from "@mui/material";
 import type { Bounds } from "../../utils/constraints";
 import {
-  clamp, toPct,
+  clamp,
   parseIntervalResult, computeStatusPoint, computeStatusInterval
 } from "../../utils/constraints";
 

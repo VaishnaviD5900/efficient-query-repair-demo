@@ -1,4 +1,3 @@
-import React from 'react';
 import { AppBar, Toolbar, Typography, IconButton, Tooltip } from '@mui/material';
 import HomeIcon from "@mui/icons-material/Home";
 import { Link, useLocation } from "react-router-dom";

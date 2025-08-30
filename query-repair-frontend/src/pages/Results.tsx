@@ -21,7 +21,7 @@ type ParsedResults = {
 };
 const API_BASE =
   (import.meta as any)?.env?.VITE_BACKEND_URL
-  
+
 export default function ResultsPage() {
   const location = useLocation();
 
@@ -90,15 +90,12 @@ export default function ResultsPage() {
 
   const nceFF = Number(fullyRow?.["Checked Num"] ?? 0);
   const nceRP = Number(rangesRow?.["Checked Num"] ?? 0);
-  const nceMax = Math.max(nceFF || 0, nceRP || 0, 1);
 
   const ncaFF = Number(fullyRow?.["Refinement Num"] ?? 0);
   const ncaRP = Number(rangesRow?.["Refinement Num"] ?? 0);
-  const ncaMax = Math.max(ncaFF || 0, ncaRP || 0, 1);
 
   const accessFF = Number(fullyRow?.["Access Num"] ?? 0);
   const accessRP = Number(rangesRow?.["Access Num"] ?? 0);
-  const accessMax = Math.max(accessFF || 0, accessRP || 0, 1);
 
   const distFF = Number(fullyRow?.["Distance"] ?? 0);
   const distRP = Number(rangesRow?.["Distance"] ?? 0);

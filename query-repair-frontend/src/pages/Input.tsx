@@ -30,7 +30,6 @@ import DatasetSchema from "../features/DatasetSchema";
 import { useNavigate } from "react-router-dom";
 // Alerts
 import AppAlert from "../components/AppAlert";
-import type { AlertColor } from "@mui/material";
 
 // ---------- Types ----------
 type Constraint = {
@@ -140,7 +139,6 @@ export default function InputPage() {
   // Alerts
   const [alertOpen, setAlertOpen] = useState(false);
   const [alertMsg, setAlertMsg] = useState("");
-  const [alertSeverity] = useState<AlertColor>("warning");
 
   const showDatasetAlert = () => {
     setAlertMsg("Please select a dataset.");

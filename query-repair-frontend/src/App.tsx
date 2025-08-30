@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Home from "./pages/Home";
 import QueryEditor from "./pages/QueryEditor";
 import Results from "./pages/Results";
@@ -8,8 +8,6 @@ import Input from "./pages/Input";
 import { Toolbar } from "@mui/material";
 
 export default function App() {
-  const location = useLocation();
-  const isHomePage = location.pathname === "/";
 
   return (
     <div
