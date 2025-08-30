@@ -1,0 +1,43 @@
+name: Deploy Frontend (Vite) to Azure Web App
+
+on:
+  push:
+    branches: [ main ]          # adjust as needed
+    paths:
+      - "query-repair-frontend/**"
+      - ".github/workflows/deploy-frontend.yml"
+  workflow_dispatch:
+
+env:
+  APP_DIR: query-repair-frontend
+  NODE_VERSION: "18.x"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.APP_DIR }}/package-lock.json
+
+      - name: Install deps
+        working-directory: ${{ env.APP_DIR }}
+        run: npm ci
+
+      - name: Build
+        working-directory: ${{ env.APP_DIR }}
+        env:
+          VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL }}
+        run: npm run build
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v2
+        with:
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE_FE }}
+          package: ${{ env.APP_DIR }}/dist
