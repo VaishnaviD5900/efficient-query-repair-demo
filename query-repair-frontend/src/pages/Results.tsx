@@ -19,8 +19,7 @@ type ParsedResults = {
   satisfied_conditions_rp: { row: Record<string, any> }[];
   raw_files: string[];
 };
-const API_BASE =
-  (import.meta as any)?.env?.VITE_BACKEND_URL
+const API_BASE ="https://query-repair-frontend-cee9fgg6fsdehcdj.uksouth-01.azurewebsites.net"
 
 export default function ResultsPage() {
   const location = useLocation();
