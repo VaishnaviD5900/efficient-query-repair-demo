@@ -1,5 +1,6 @@
 from collections import defaultdict
 from multiprocessing import Condition
+from pathlib import Path
 #from statistics import correlation
 import pandas as pd
 import time
@@ -14,6 +15,16 @@ import heapq
 import os
 
 import json, hashlib  # add with your other imports
+
+def _resolve_cache_dir() -> Path:
+    base = os.getenv("CACHE_DIR")
+    if base:
+        p = Path(base)
+    p = p.resolve()
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+CACHE_DIR = _resolve_cache_dir()
 
 def make_range_cache_key(dataName, dataSize, bucket, branch, ranges, operators):
     """
@@ -41,7 +52,8 @@ def load_cached_clusters(cache_file, cluster_map):
     Rebuild list of clusters (with Satisfy flag) from CSV cache.
     Returns list[dict] or None if cache missing/bad.
     """
-    if not os.path.exists(cache_file):
+    cache_file = Path(cache_file)
+    if not cache_file.exists():
         return None
     try:
         df = pd.read_csv(cache_file)
@@ -60,7 +72,8 @@ def save_clusters_cache(cache_file, clusters):
     """
     Save Level/Cluster Id/Satisfy for later reconstruction.
     """
-    os.makedirs(os.path.dirname(cache_file), exist_ok=True)
+    cache_file = Path(cache_file)
+    cache_file.parent.mkdir(parents=True, exist_ok=True)
     recs = []
     for c in clusters:
         recs.append({
@@ -220,7 +233,7 @@ class filtered_with_Ranges_generalize_topK1:
                 full_start_time = time.time()
                 
                 cache_id = make_range_cache_key(dataName, datasize, bucket, branch, current_ranges, operators_list)
-                cache_file = os.path.join("cache", f"rp_filtered_{cache_id}.csv")
+                cache_file = CACHE_DIR / f"rp_filtered_{cache_id}.csv"
 
                 filtered_clusters = load_cached_clusters(cache_file, cluster_map)
                 if filtered_clusters is None:
@@ -299,7 +312,7 @@ class filtered_with_Ranges_generalize_topK1:
             else: # If the range is minimal, no need to divide and filter fully
                 single_start_time = time.time()
                 cache_id = make_range_cache_key(dataName, datasize, bucket, branch, current_ranges, operators_list)
-                cache_file = os.path.join("cache", f"rp_filtered_{cache_id}.csv")
+                cache_file = CACHE_DIR / f"rp_filtered_{cache_id}.csv"
 
                 filtered_clusters = load_cached_clusters(cache_file, cluster_map)
                 if filtered_clusters is None:

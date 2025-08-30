@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 import time
 from typing import List, Union
 from .SQL_operators import SQL_operators
@@ -428,7 +430,8 @@ def resolve_constraint(dataName: str, constraint: list | tuple, constraint_def: 
 def main(dataName: str = "TPCH",
     Top_k: int = 7,
     predicates: list[dict] | None = None ,
-     constraint_def: dict | None = None):
+    constraint_def: dict | None = None):
+    OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "./output")).resolve()
     if predicates is None:
         predicates = [
             {"field": "p_size", "op": ">=", "value": 10},
@@ -459,7 +462,7 @@ def main(dataName: str = "TPCH",
     bucketSize = [15] 
     branchNum = [5] 
     queryNum = 7
-    outputDirectory = "C:/Query-Repair-System/efficient-query-repair-demo/query-repair-backend/output"
+    outputDirectory = str(OUTPUT_DIR)
     # -----------------------------------------------
 
     for bucket in bucketSize:

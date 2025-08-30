@@ -1,3 +1,4 @@
+from pathlib import Path
 import pandas as pd
 import numpy as np
 import time
@@ -10,6 +11,18 @@ from functools import lru_cache
 import hashlib
 import json
 from pandas.errors import EmptyDataError
+
+def _resolve_cache_dir() -> Path:
+    # Prefer explicit CACHE_DIR; else fall back to OUTPUT_DIR/cache; else ./output/cache
+    base = os.getenv("CACHE_DIR")
+    if base:
+        p = Path(base)
+    p = p.resolve()
+    p.mkdir(parents=True, exist_ok=True)
+    return p
+
+CACHE_DIR = _resolve_cache_dir()
+
 
 def make_cache_key(dataName, dataSize, bucket, branch, conditions, operators):
     """Create a unique hash for given run configuration."""
@@ -67,7 +80,7 @@ class filtered_fully:
 
             #print(conditions)
             cache_key = make_cache_key(dataName, datasize, bucket, branch, conditions, operators)
-            cache_file = os.path.join("cache", f"filtered_clusters_{cache_key}.csv")   
+            cache_file =  CACHE_DIR / f"filtered_clusters_{cache_key}.csv" 
             similarity = refinement['distance']
 
             filtered_clusters = []   
