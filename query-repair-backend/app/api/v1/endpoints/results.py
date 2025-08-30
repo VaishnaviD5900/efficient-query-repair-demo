@@ -19,63 +19,29 @@ def _first(paths: List[Path]) -> Optional[Path]:
 def _read_csv(p: Optional[Path]) -> pd.DataFrame:
     if p and p.exists():
         try:
-            return pd.read_csv(p, engine="python", keep_default_na=False)
+            # let pandas parse NA normally; we'll normalize blanks below
+            return pd.read_csv(p, engine="python")
         except Exception:
             pass
     return pd.DataFrame()
 
-def _to_int(v):
-    try:
-        if v in ("", None, "None"): return None
-        return int(float(v))
-    except Exception:
+def _normalize_cell(v):
+    """Convert whitespacey/placeholder strings to None; otherwise return trimmed strings or original value."""
+    if v is None:
         return None
+    if isinstance(v, str):
+        s = v.strip()
+        if s in ("", "None", "nan", "NaN", "N/A", "-"):
+            return None
+        return s  # keep as string; Pydantic will coerce where needed
+    return v
 
-def _to_float(v):
-    try:
-        if v in ("", None, "None"): return None
-        return float(v)
-    except Exception:
-        return None
-
-def _parse_run_info(df: pd.DataFrame) -> RunInfo:
-    """
-    Parse your single-row wide CSV with headers:
-
-    Data Name, Data Size, Query Num, Constraint Num, Type, Top-K,
-    Combinations Num, Distance, Access Num, Checked Num, Refinement Num, Time,
-    Constraint Width, Solutions Count, Constraint, Query,
-    Range Evaluation Time, Division Time, Single Time, Processing Time
-    """
+def _clean_df(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
-        return RunInfo()
-
-    # trim header whitespace just in case
+        return df
     df = df.rename(columns=lambda c: str(c).strip())
-    row = df.iloc[0]
-
-    return RunInfo(
-        dataset            = row.get("Data Name"),
-        size               = _to_int(row.get("Data Size")),
-        query_num          = _to_int(row.get("Query Num")),
-        constraint_num     = _to_int(row.get("Constraint Num")),
-        run_type           = row.get("Type"),
-        top_k              = _to_int(row.get("Top-K")),
-        combinations       = _to_int(row.get("Combinations Num")),
-        distance           = _to_float(row.get("Distance")),
-        access_num         = _to_int(row.get("Access Num")),
-        checked_num        = _to_int(row.get("Checked Num")),
-        refinement_num     = _to_int(row.get("Refinement Num")),
-        time_sec           = _to_float(row.get("Time")),
-        constraint_width   = _to_float(row.get("Constraint Width")),
-        solutions_count    = _to_int(row.get("Solutions Count")),
-        constraint_text    = row.get("Constraint"),
-        query_text         = row.get("Query"),
-        range_eval_time    = _to_float(row.get("Range Evaluation Time")),
-        division_time      = _to_float(row.get("Division Time")),
-        single_time        = _to_float(row.get("Single Time")),
-        processing_time    = _to_float(row.get("Processing Time")),
-    )
+    # normalize every cell
+    return df.applymap(_normalize_cell)
 
 def _escape_dataset(ds: str) -> str:
     return re.escape(ds.strip())
@@ -95,15 +61,15 @@ def get_results(
     """
     Read artifacts from an output dir and return structured JSON for the Results page.
     """
-    DEFAULT_OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "./output")).resolve() 
+    DEFAULT_OUTPUT_DIR = Path(os.getenv("OUTPUT_DIR", "./output")).resolve()
     odir = DEFAULT_OUTPUT_DIR
     if not odir.exists():
-        raise HTTPException(status_code=404, detail=f"Output dir not found: {output_dir}")
+        raise HTTPException(status_code=404, detail=f"Output dir not found: {odir}")
 
     # search recursively (in case future runs write subfolders)
     files = [p for p in odir.rglob("*") if p.is_file()]
     if not files:
-        raise HTTPException(status_code=404, detail=f"No files found in: {output_dir}")
+        raise HTTPException(status_code=404, detail=f"No files found in: {odir}")
 
     ds = _escape_dataset(dataset)
 
@@ -119,13 +85,22 @@ def get_results(
     ff_df       = _read_csv(ff_path)
     rp_df       = _read_csv(rp_path)
 
-    run_info_rows = run_info_df.rename(columns=lambda c: str(c).strip()).to_dict(orient="records") if not run_info_df.empty else []
+    # --- Clean and coerce run_info into typed models ---
+    if not run_info_df.empty:
+        run_info_df = _clean_df(run_info_df)
+        run_info_records = run_info_df.to_dict(orient="records")
+        run_info_rows: List[RunInfo] = [RunInfo(**rec) for rec in run_info_records]
+    else:
+        run_info_rows = []
 
+    # satisfied_* tables are passed through as-is (free-form rows)
+    ff_rows = ff_df.to_dict(orient="records") if not ff_df.empty else []
+    rp_rows = rp_df.to_dict(orient="records") if not rp_df.empty else []
 
     return ParsedResults(
         output_dir=str(odir),
-        run_info = run_info_rows,
-        satisfied_conditions_ff=[SatisfiedRow(row=r) for r in ff_df.to_dict(orient="records")] if not ff_df.empty else [],
-        satisfied_conditions_rp=[SatisfiedRow(row=r) for r in rp_df.to_dict(orient="records")] if not rp_df.empty else [],
+        run_info=run_info_rows,
+        satisfied_conditions_ff=[SatisfiedRow(row=r) for r in ff_rows],
+        satisfied_conditions_rp=[SatisfiedRow(row=r) for r in rp_rows],
         raw_files=[str(p) for p in files],
     )
