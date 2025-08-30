@@ -1,4 +1,4 @@
-name: Deploy Frontend (Vite) to Azure Web App
+name: Deploy Frontend to Azure Web App
 
 on:
   push:
