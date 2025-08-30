@@ -2,19 +2,26 @@ name: Deploy Frontend to Azure Web App
 
 on:
   push:
-    branches: [ deploy ]          # adjust as needed
+    branches: [ deploy ]
     paths:
       - "query-repair-frontend/**"
       - ".github/workflows/deploy-frontend.yml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 env:
   APP_DIR: query-repair-frontend
-  NODE_VERSION: "18.x"
+  NODE_VERSION: "20.x"   # use your App Service’s Node LTS
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    concurrency:
+      group: fe-deploy
+      cancel-in-progress: true
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,11 +37,15 @@ jobs:
         working-directory: ${{ env.APP_DIR }}
         run: npm ci
 
-      - name: Build
+      - name: Build (bakes VITE_BACKEND_URL)
         working-directory: ${{ env.APP_DIR }}
         env:
           VITE_BACKEND_URL: ${{ secrets.VITE_BACKEND_URL }}
+          CI: false
         run: npm run build
+
+      - name: Debug baked URL (optional)
+        run: grep -R "azurewebsites.net\|VITE_BACKEND_URL" -n ${{ env.APP_DIR }}/dist || true
 
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v2
