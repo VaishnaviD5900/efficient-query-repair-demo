@@ -1,7 +1,7 @@
 # app/api/v1/endpoints/repair.py
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, BackgroundTasks, status
 from typing import Dict, Any, List
 from pathlib import Path
 import os
@@ -54,15 +54,12 @@ def _read_results_from_output_dir(output_dir: Path, max_csv_preview_rows: int = 
 def _run_job(job_id: str, req: RepairRequest, output_dir: Path) -> None:
     """Background worker that runs the heavy query-repair and stores results."""
     try:
-        # Execute your long-running logic
         qr_main(
             dataName=req.dataName,
             Top_k=req.Top_k,
             predicates=[p.model_dump() for p in req.predicates],
             constraint_def=req.constraint_def.model_dump(),
         )
-
-        # Collect artifacts
         results = _read_results_from_output_dir(output_dir)
         result_obj = RepairResult(
             ok=True,
@@ -81,21 +78,8 @@ def _run_job(job_id: str, req: RepairRequest, output_dir: Path) -> None:
             JOBS[job_id]["error"] = f"{e}"
 
 
-def _start_thread(job_id: str, req: RepairRequest, output_dir: Path) -> None:
-    """Start the worker in a separate daemon thread (detached from request)."""
-    t = threading.Thread(
-        target=_run_job,
-        args=(job_id, req, output_dir),
-        name=f"repair-job-{job_id[:8]}",
-        daemon=True,  # don't block process shutdown
-    )
-    t.start()
-    with LOCK:
-        JOBS[job_id]["thread"] = t  # optional: keep a reference
-
-
 @router.post("/run", status_code=status.HTTP_202_ACCEPTED, response_model=JobAccepted)
-def run_repair(req: RepairRequest) -> JobAccepted:
+def run_repair(req: RepairRequest, background_tasks: BackgroundTasks) -> JobAccepted:
     """
     Kick off the repair job and return immediately (avoid Azure 504 on long runs).
     Poll /api/v1/repair/status/{job_id} for completion.
@@ -110,8 +94,7 @@ def run_repair(req: RepairRequest) -> JobAccepted:
     with LOCK:
         JOBS[job_id] = {"status": "running", "output_dir": str(output_dir)}
 
-    # Run off-thread (not tied to the request lifecycle)
-    _start_thread(job_id, req, output_dir)
+    background_tasks.add_task(_run_job, job_id, req, output_dir)
 
     return JobAccepted(
         job_id=job_id,
