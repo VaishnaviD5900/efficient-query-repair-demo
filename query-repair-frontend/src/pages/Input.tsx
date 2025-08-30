@@ -185,8 +185,7 @@ export default function InputPage() {
       const data = await r.json();
       if (data.status === "done" && data.result) return data.result;
       if (data.status === "error") throw new Error(data.error || "Job failed");
-      if (data.status === "unknown")
-        throw new Error("Job not found (backend not sharing state)");
+      
       if (Date.now() - start > timeout)
         throw new Error("Timed out waiting for job");
       await sleep(interval);
