@@ -52,7 +52,7 @@ type Dataset = {
   file?: string; // single CSV
   files?: Record<string, string>; // multi-CSV (tpch)
 };
-
+const API_BASE = (import.meta as any)?.env?.VITE_BACKEND_URL;
 // ---------- Datasets ----------
 const datasetConfig: Dataset[] = [
   {
@@ -173,6 +173,27 @@ export default function InputPage() {
     setColumnTypes(inferColumnTypes(previewData));
     setIsLoading(false);
   };
+
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  async function pollStatus(
+    fullStatusUrl: string,
+    { interval = 2000, timeout = 15 * 60_000 } = {}
+  ) {
+    const start = Date.now();
+    while (true) {
+      const r = await fetch(fullStatusUrl);
+      if (!r.ok) throw new Error(`Status HTTP ${r.status}`);
+      const data = await r.json();
+      if (data.status === "done" && data.result) return data.result;
+      if (data.status === "error") throw new Error(data.error || "Job failed");
+      if (data.status === "unknown")
+        throw new Error("Job not found (backend not sharing state)");
+      if (Date.now() - start > timeout)
+        throw new Error("Timed out waiting for job");
+      await sleep(interval);
+    }
+  }
 
   const withPrefix = (row: Record<string, any> | undefined, prefix: string) => {
     if (!row) return {};
@@ -941,7 +962,7 @@ export default function InputPage() {
           try {
             setIsRepairing(true);
 
-            const res = await fetch("http://127.0.0.1:8000/api/v1/repair/run", {
+            const res = await fetch(`${API_BASE}/api/v1/repair/run`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(payload),
@@ -952,8 +973,14 @@ export default function InputPage() {
               throw new Error(err?.detail || `HTTP ${res.status}`);
             }
 
-            const result = await res.json(); // conforms to RepairResult
-            localStorage.setItem("repairRunResult", JSON.stringify(result));
+            const accepted = await res.json();
+            const statusUrl = `${API_BASE}${accepted.status_url}`;
+
+            const finalResult = await pollStatus(statusUrl); 
+            localStorage.setItem(
+              "repairRunResult",
+              JSON.stringify(finalResult)
+            );
 
             // Navigate with essentials (Results can read more from localStorage if needed)
             navigate("/results", {
@@ -963,7 +990,7 @@ export default function InputPage() {
                 columnCount: Object.keys(columnTypes).length,
                 query,
                 topK,
-                outputDir: result.output_dir,
+                outputDir: finalResult.output_dir,
               },
             });
           } catch (err: any) {

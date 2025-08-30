@@ -19,7 +19,9 @@ type ParsedResults = {
   satisfied_conditions_rp: { row: Record<string, any> }[];
   raw_files: string[];
 };
-
+const API_BASE =
+  (import.meta as any)?.env?.VITE_BACKEND_URL
+  
 export default function ResultsPage() {
   const location = useLocation();
 
@@ -60,7 +62,7 @@ export default function ResultsPage() {
     (async () => {
       try {
         setLoading(true);
-        const res = await fetch(`http://127.0.0.1:8000/api/v1/results?dataset=${datasetName}`);
+        const res = await fetch(`${API_BASE}/api/v1/results?dataset=${datasetName}`);
         if (!res.ok) throw new Error(await res.text());
         const data: ParsedResults = await res.json();
         setArtifacts(data);
