@@ -19,7 +19,7 @@ type ParsedResults = {
   satisfied_conditions_rp: { row: Record<string, any> }[];
   raw_files: string[];
 };
-const API_BASE ="https://query-repair-frontend-cee9fgg6fsdehcdj.uksouth-01.azurewebsites.net"
+const API_BASE ="https://query-repair-fqepd3crc9h9ggdh.uksouth-01.azurewebsites.net"
 
 export default function ResultsPage() {
   const location = useLocation();

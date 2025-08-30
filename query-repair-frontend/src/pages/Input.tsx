@@ -51,7 +51,7 @@ type Dataset = {
   file?: string; // single CSV
   files?: Record<string, string>; // multi-CSV (tpch)
 };
-const API_BASE = "https://query-repair-frontend-cee9fgg6fsdehcdj.uksouth-01.azurewebsites.net"
+const API_BASE = "https://query-repair-fqepd3crc9h9ggdh.uksouth-01.azurewebsites.net"
 // ---------- Datasets ----------
 const datasetConfig: Dataset[] = [
   {
