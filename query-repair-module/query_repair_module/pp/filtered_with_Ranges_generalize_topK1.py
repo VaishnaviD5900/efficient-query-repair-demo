@@ -18,11 +18,12 @@ import json, hashlib  # add with your other imports
 
 def _resolve_cache_dir() -> Path:
     base = os.getenv("CACHE_DIR")
-    if base:
-        p = Path(base)
-    p = p.resolve()
+    if not base or base.strip() == "":
+        base = os.path.join(os.getenv("OUTPUT_DIR", "./output"), "cache")
+    p = Path(base).resolve()
     p.mkdir(parents=True, exist_ok=True)
     return p
+
 
 CACHE_DIR = _resolve_cache_dir()
 

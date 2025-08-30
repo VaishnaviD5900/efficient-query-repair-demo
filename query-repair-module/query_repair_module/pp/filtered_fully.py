@@ -13,13 +13,13 @@ import json
 from pandas.errors import EmptyDataError
 
 def _resolve_cache_dir() -> Path:
-    # Prefer explicit CACHE_DIR; else fall back to OUTPUT_DIR/cache; else ./output/cache
     base = os.getenv("CACHE_DIR")
-    if base:
-        p = Path(base)
-    p = p.resolve()
+    if not base or base.strip() == "":
+        base = os.path.join(os.getenv("OUTPUT_DIR", "./output"), "cache")
+    p = Path(base).resolve()
     p.mkdir(parents=True, exist_ok=True)
     return p
+
 
 CACHE_DIR = _resolve_cache_dir()
 
