@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import {
-  Box, Container, Typography, Paper, Divider, LinearProgress, Alert,
+  Box,
+  Container,
+  Typography,
+  Paper,
+  Divider,
+  LinearProgress,
+  Alert,
 } from "@mui/material";
 import { useLocation } from "react-router-dom";
 
@@ -18,8 +24,11 @@ type ParsedResults = {
   satisfied_conditions_ff: { row: Record<string, any> }[];
   satisfied_conditions_rp: { row: Record<string, any> }[];
   raw_files: string[];
+  // optional
+  original_metric?: string | null;
+  original_pass?: boolean | null;
 };
-const API_BASE ="https://query-repair-fqepd3crc9h9ggdh.uksouth-01.azurewebsites.net"
+const API_BASE = "https://query-repair-fqepd3crc9h9ggdh.uksouth-01.azurewebsites.net";
 
 export default function ResultsPage() {
   const location = useLocation();
@@ -31,6 +40,31 @@ export default function ResultsPage() {
   const [artifacts, setArtifacts] = useState<ParsedResults | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
+
+  const originalMetricRaw = artifacts?.original_metric;
+  const originalPassRaw = artifacts?.original_pass;
+
+  const originalMetric =
+    originalMetricRaw !== undefined &&
+    originalMetricRaw !== null &&
+    originalMetricRaw !== "" &&
+    !Number.isNaN(Number(originalMetricRaw))
+      ? Number(originalMetricRaw).toFixed(3)
+      : "No Data";
+
+  const originalPass =
+  originalPassRaw === undefined || originalPassRaw === null
+    ? "-"
+    : originalPassRaw
+    ? "Pass"
+    : "Fail";
+
+  const originalPassColor =
+  originalPassRaw === true
+    ? "success.main"
+    : originalPassRaw === false
+    ? "error.main"
+    : "text.secondary";
 
   const {
     datasetName = "Unknown Dataset",
@@ -51,7 +85,8 @@ export default function ResultsPage() {
       setConstraintExpr(parsed.constraintExpr || "");
     }
 
-    const outputDir = outputDirFromState || localStorage.getItem("qrOutputDir") || "";
+    const outputDir =
+      outputDirFromState || localStorage.getItem("qrOutputDir") || "";
     if (!outputDir) {
       setError("Missing output directory. Run a repair first.");
       setLoading(false);
@@ -61,7 +96,9 @@ export default function ResultsPage() {
     (async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${API_BASE}/api/v1/results?dataset=${datasetName}`);
+        const res = await fetch(
+          `${API_BASE}/api/v1/results?dataset=${datasetName}`
+        );
         if (!res.ok) throw new Error(await res.text());
         const data: ParsedResults = await res.json();
         setArtifacts(data);
@@ -76,11 +113,17 @@ export default function ResultsPage() {
   // ----- RunInfo matching (SQL ↔ RunInfo) -----
   const runInfoRows = artifacts?.run_info || [];
   const sigSql = signatureFromSql(sqlQuery);
-  const matchingRunInfo = runInfoRows.filter((r) => signatureFromRunInfo(String(r["Query"] || "")) === sigSql);
+  const matchingRunInfo = runInfoRows.filter(
+    (r) => signatureFromRunInfo(String(r["Query"] || "")) === sigSql
+  );
 
   const hasRunMatch = matchingRunInfo.length > 0;
-  const fullyRow = hasRunMatch ? matchingRunInfo.find((r) => (r["Type"] || r["type"]) === "Fully") : undefined;
-  const rangesRow = hasRunMatch ? matchingRunInfo.find((r) => (r["Type"] || r["type"]) === "Ranges") : undefined;
+  const fullyRow = hasRunMatch
+    ? matchingRunInfo.find((r) => (r["Type"] || r["type"]) === "Fully")
+    : undefined;
+  const rangesRow = hasRunMatch
+    ? matchingRunInfo.find((r) => (r["Type"] || r["type"]) === "Ranges")
+    : undefined;
   const anyRow = hasRunMatch ? matchingRunInfo[0] : undefined;
 
   const runtimeFF = Number(fullyRow?.["Time"] ?? 0);
@@ -105,57 +148,124 @@ export default function ResultsPage() {
 
   const constraintStr = String(
     anyRow?.["Arithmetic Expression"] ??
-    anyRow?.["Constraint"] ?? // keep as backup if your CSV still has this
-    ""
+      anyRow?.["Constraint"] ?? // keep as backup if your CSV still has this
+      ""
   );
   const bounds: Bounds = parseConstraintBounds(constraintStr);
 
-  const maxSimFF = getMaxSimilarity(artifacts?.satisfied_conditions_ff || [], sqlQuery);
-  const maxSimRP = getMaxSimilarity(artifacts?.satisfied_conditions_rp || [], sqlQuery);
+  const maxSimFF = getMaxSimilarity(
+    artifacts?.satisfied_conditions_ff || [],
+    sqlQuery
+  );
+  const maxSimRP = getMaxSimilarity(
+    artifacts?.satisfied_conditions_rp || [],
+    sqlQuery
+  );
 
   return (
     <Container maxWidth="md" sx={{ mt: 2 }}>
-      <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-        <Typography variant="h4" fontWeight="bold" gutterBottom>Results</Typography>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        mb={1}
+      >
+        <Typography variant="h4" fontWeight="bold" gutterBottom>
+          Results
+        </Typography>
       </Box>
 
       <Typography variant="h6" color="text.secondary" gutterBottom>
         Dataset: <strong>{datasetName}</strong>{" "}
-        <Typography variant="body2" component="span">Size: {size} KB</Typography>,{" "}
-        <Typography variant="body2" component="span">Columns: {columnCount}</Typography>
+        <Typography variant="body2" component="span">
+          Size: {size} KB
+        </Typography>
+        ,{" "}
+        <Typography variant="body2" component="span">
+          Columns: {columnCount}
+        </Typography>
       </Typography>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-        <Typography variant="h6" gutterBottom>Original Query</Typography>
+        <Typography variant="h6" gutterBottom>
+          Original Query
+        </Typography>
         <Paper variant="outlined" sx={{ p: 1, my: 1 }}>
-          <Typography variant="body2" color="text.secondary" style={{ whiteSpace: "pre-wrap" }}>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            style={{ whiteSpace: "pre-wrap" }}
+          >
             {sqlQuery || "-- SQL query not available --"}
           </Typography>
         </Paper>
 
-        <Typography variant="h6" gutterBottom>Aggregate Functions</Typography>
+        <Typography variant="h6" gutterBottom>
+          Aggregate Functions
+        </Typography>
         <Paper variant="outlined" sx={{ p: 1, my: 1 }}>
           {(aggregations?.length ?? 0) === 0 ? (
-            <Typography variant="body2" color="text.secondary">Aggregate Functions not available --</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Aggregate Functions not available --
+            </Typography>
           ) : (
             aggregations.map((agg: any, index: number) => (
-              <Typography key={index} variant="body2" color="text.secondary" style={{ whiteSpace: "pre-wrap" }}>
-                {`${agg.name}: ${String(agg.func).toUpperCase()} WHERE ${agg.predicate}`}
+              <Typography
+                key={index}
+                variant="body2"
+                color="text.secondary"
+                style={{ whiteSpace: "pre-wrap" }}
+              >
+                {`${agg.name}: ${String(agg.func).toUpperCase()} WHERE ${
+                  agg.predicate
+                }`}
               </Typography>
             ))
           )}
         </Paper>
 
-        <Typography variant="h6" gutterBottom>Arithmetic Expression</Typography>
-        <Paper variant="outlined" sx={{ p: 1, my: 1 }}>
-          <Typography variant="body2" color="text.secondary" style={{ whiteSpace: "pre-wrap" }}>
-            {constraintExpr || "--"}
-          </Typography>
-        </Paper>
+        <Typography variant="h6" gutterBottom>
+  Arithmetic Expression & Original Query Result
+</Typography>
+
+<Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+  {/* Arithmetic Expression */}
+  <Paper variant="outlined" sx={{ flex: 2, p: 1 }}>
+    <Typography
+      variant="body2"
+      color="text.secondary"
+      sx={{ whiteSpace: "pre-wrap" }}
+    >
+      {constraintExpr || "--"}
+    </Typography>
+  </Paper>
+
+  {/* Metric + Pass/Fail */}
+  <Paper variant="outlined" sx={{  p: 1 }}>
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "flex-end",
+        gap: 2,
+      }}
+    >
+      <Typography variant="body2" color="text.secondary">
+        Metric: <strong>{originalMetric}</strong>
+      </Typography>
+      <Typography variant="body2" sx={{ color: originalPassColor }}>
+        <strong>{originalPass}</strong>
+      </Typography>
+    </Box>
+  </Paper>
+</Box>
+
       </Paper>
 
       {/* Top-k tables */}
-      <Typography variant="h6" gutterBottom>Top-k Repaired Queries</Typography>
+      <Typography variant="h6" gutterBottom>
+        Top-k Repaired Queries
+      </Typography>
       <TopKTable
         title="Full Filtering (point estimates)"
         rows={artifacts?.satisfied_conditions_ff || []}
@@ -175,9 +285,15 @@ export default function ResultsPage() {
 
       <Divider sx={{ my: 3 }} />
 
-      <Typography variant="h6" gutterBottom>Algorithm Search Space Metrics</Typography>
+      <Typography variant="h6" gutterBottom>
+        Algorithm Search Space Metrics
+      </Typography>
       {loading && <LinearProgress sx={{ mb: 2 }} />}
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      )}
 
       {!!artifacts?.run_info?.length && (
         <Box sx={{ mb: 2 }}>
@@ -185,13 +301,24 @@ export default function ResultsPage() {
           <Typography
             variant="body2"
             color="text.secondary"
-            sx={{ mb: 3, display: "flex", alignItems: "center", flexWrap: "wrap", gap: 1 }}
+            sx={{
+              mb: 3,
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 1,
+            }}
           >
             <MetricLabel
               label="Combos"
               info="Combinations Num: total number of candidate repairs considered (product of per-predicate options)."
             />
-            : <strong>{Number.isFinite(combinations) ? Number(combinations).toLocaleString() : "—"}</strong>
+            :{" "}
+            <strong>
+              {Number.isFinite(combinations)
+                ? Number(combinations).toLocaleString()
+                : "—"}
+            </strong>
           </Typography>
 
           {/* bars */}

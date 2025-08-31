@@ -5,7 +5,7 @@ import re
 
 from fastapi import APIRouter, HTTPException, Query
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import pandas as pd
 
 from app.models.schemas import ParsedResults, RunInfo, SatisfiedRow
@@ -13,6 +13,34 @@ from app.models.schemas import ParsedResults, RunInfo, SatisfiedRow
 router = APIRouter()
 
 # ---------- helpers ----------
+def _read_original_check(files: List[Path], dataset: str) -> Tuple[Optional[str], Optional[bool]]:
+    # tolerate underscores / hyphens and both orders
+    pattern = rf"original[_-]?query.*{_escape_dataset(dataset)}|{_escape_dataset(dataset)}.*original[_-]?query"
+    p = _match(files, pattern)
+    if not p:
+        return (None, None)
+
+    df = _read_csv(p)
+    if df.empty:
+        return (None, None)
+
+    df = _clean_df(df)
+
+    # case-insensitive column lookup
+    cols = {str(c).strip().lower(): c for c in df.columns}
+    metric_col = cols.get("original metric")
+    pass_col   = cols.get("original pass")
+    if not metric_col or not pass_col:
+        return (None, None)
+
+    last = df.tail(1).iloc[0]
+    metric_val = last.get(metric_col)
+    pass_val = last.get(pass_col)
+
+    # stringify metric exactly as stored
+    metric_str = None if metric_val is None else str(metric_val)
+    return (metric_str, (pass_val))
+
 def _first(paths: List[Path]) -> Optional[Path]:
     return sorted(paths)[0] if paths else None
 
@@ -97,10 +125,15 @@ def get_results(
     ff_rows = ff_df.to_dict(orient="records") if not ff_df.empty else []
     rp_rows = rp_df.to_dict(orient="records") if not rp_df.empty else []
 
+    orig_metric, orig_pass = _read_original_check(files, dataset)
+
     return ParsedResults(
-        output_dir=str(odir),
-        run_info=run_info_rows,
-        satisfied_conditions_ff=[SatisfiedRow(row=r) for r in ff_rows],
-        satisfied_conditions_rp=[SatisfiedRow(row=r) for r in rp_rows],
-        raw_files=[str(p) for p in files],
+    output_dir=str(odir),
+    run_info=run_info_rows,
+    satisfied_conditions_ff=[SatisfiedRow(row=r) for r in ff_rows],
+    satisfied_conditions_rp=[SatisfiedRow(row=r) for r in rp_rows],
+    raw_files=[str(p) for p in files],
+    original_metric=orig_metric,
+    original_pass=orig_pass,
     )
+

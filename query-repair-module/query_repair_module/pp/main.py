@@ -20,6 +20,7 @@ from .predicatesPossibleValues import predicatesPossibleValues
 from .ExpressionEvaluator import ExpressionEvaluator
 import matplotlib.pyplot as plt
 import re
+import math
 def analyze_distribution(df, column):
     plt.figure(figsize=(10, 6))
 
@@ -427,6 +428,65 @@ def resolve_constraint(dataName: str, constraint: list | tuple, constraint_def: 
     raise ValueError("constraint_def is required for this dataset.")
 
 
+
+def check_original_query_pass(df_filtered, aggregations, expression):
+    """
+    Returns: (passed: bool, metric: float | list[float] | None, agg_values: dict)
+    """
+    from .ExpressionEvaluator import ExpressionEvaluator
+    from .ExpressionEvaluator1 import ExpressionEvaluator1
+
+    # pick evaluator by agg functions used
+    agg_funcs = " ".join(aggregations.values()).lower()
+    if any(k in agg_funcs for k in ["sum(", "min(", "max(", "avg("]):
+        evaluator = ExpressionEvaluator1()
+    else:
+        evaluator = ExpressionEvaluator()
+
+    # 1) evaluate aggs
+    agg_values = {name: evaluator.evaluate_aggregation(df_filtered, func)
+                  for name, func in aggregations.items()}
+
+    def safe_div(a, b):
+        if b in (0, 0.0, None) or (isinstance(b, float) and math.isnan(b)):
+            return float("nan")
+        return a / b
+
+    def eval_range_expr(range_expr: str):
+        # expects: L <= (agg expr) <= U
+        m = re.search(r'^\s*([-\d\.eE]+)\s*<=\s*(.+?)\s*<=\s*([-\d\.eE]+)\s*$', range_expr)
+        if not m:
+            raise ValueError(f"Unsupported constraint format: {range_expr}")
+        L = float(m.group(1)); core = m.group(2).strip(); U = float(m.group(3))
+
+        if all(k in agg_values for k in ("agg1","agg2","agg3","agg4")) and \
+           ("agg1" in core and "agg2" in core and "agg3" in core and "agg4" in core):
+            val = safe_div(agg_values["agg1"], agg_values["agg2"]) - safe_div(agg_values["agg3"], agg_values["agg4"])
+        else:
+            # tiny safe eval: replace agg tokens with numbers, disable builtins
+            safe_core = core
+            for k, v in agg_values.items():
+                safe_core = re.sub(fr'\b{k}\b', str(float(v)), safe_core)
+            val = eval(safe_core, {"__builtins__": {}}, {})
+
+        passed = (not (isinstance(val, float) and math.isnan(val))) and (L <= val <= U)
+        return passed, val
+
+    if isinstance(expression, str):
+        ok, metric = eval_range_expr(expression)
+        return ok, metric, agg_values
+    elif isinstance(expression, list):
+        metrics = []
+        ok_all = True
+        for expr in expression:
+            ok, mval = eval_range_expr(expr)
+            metrics.append(mval)
+            ok_all = ok_all and ok
+        return ok_all, metrics, agg_values
+    else:
+        raise TypeError("expression must be str or list[str]")
+
+
 def main(dataName: str = "TPCH",
     Top_k: int = 7,
     predicates: list[dict] | None = None ,
@@ -555,7 +615,36 @@ def main(dataName: str = "TPCH",
                                 constraint_columns, df_merged, df_constraint, corr_matrix, df_predicate, statistical_tree, cluster_tree, columns = [], [], [], [], [], [], [], []
                                 df_predicate = pd.DataFrame(df_original, columns=column_names)      # Convert to a Pandas DataFrame with dynamic column names
                                 # constraint_columns, aggregations, expression, const_num = globals()[f"constraint{constraintNum}_{dataName}"](df_original, constraint)
-                                constraint_columns, aggregations, expression, const_num = resolve_constraint(dataName, constraint, constraint_def)  
+                                constraint_columns, aggregations, expression, const_num = resolve_constraint(dataName, constraint, constraint_def) 
+                                # --- ORIGINAL QUERY PASS/FAIL CHECK ---
+                                try:
+                                    orig_pass, orig_metric, orig_aggs = check_original_query_pass(
+                                        df_userQueryOut,        # the user's filtered rows
+                                        aggregations,
+                                        expression
+                                    )
+                                    print(f"[Original Query] metric={orig_metric} -> {'PASS' if orig_pass else 'FAIL'}")
+
+                                    # Save minimal info (just metric + pass/fail)
+                                    os.makedirs(outputDirectory, exist_ok=True)
+                                    metric_str = (
+                                        ";".join(map(str, orig_metric)) if isinstance(orig_metric, list)
+                                        else str(orig_metric)
+                                    )
+                                    orig_df = pd.DataFrame([{
+                                        "Original Metric": metric_str,
+                                        "Original Pass": orig_pass,
+                                    }])
+
+                                    file_path = os.path.join(outputDirectory, f"original_query_{dataName}.csv")
+                                    write_header = not os.path.exists(file_path)
+                                    orig_df.to_csv(file_path, mode="a", index=False, header=write_header)
+
+                                except Exception as e:
+                                    print("[Original Query] Evaluation error:", e)
+                                # --------------------------------------
+
+
                                 print("inputs::----", (constraint_columns, aggregations, expression, const_num))
                                 df_constraint = pd.DataFrame(df_original, columns=constraint_columns)    
                                 df_merged = pd.concat([df_predicate, df_constraint], axis=1)        # Merging the dataframes (predicates columns with constraints columns) by their index

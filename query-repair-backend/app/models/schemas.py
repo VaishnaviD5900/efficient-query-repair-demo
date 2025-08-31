@@ -70,6 +70,10 @@ class ParsedResults(BaseModel):
     satisfied_conditions_rp: List[SatisfiedRow] = Field(default_factory=list)
     raw_files: List[str] = Field(default_factory=list)
 
+    # optional
+    original_metric: Optional[str] = None
+    original_pass: Optional[bool] = None
+
 class JobAccepted(BaseModel):
     job_id: str
     status_url: str
