@@ -33,8 +33,8 @@ export function TopKTable({
           <TableHead>
             <TableRow>
               <TableCell width={30}>Rank</TableCell>
-              <TableCell>Conditions</TableCell>
-              <TableCell>Similarity</TableCell>
+              <TableCell>Repaired queries</TableCell>
+              <TableCell>Distance from original</TableCell>
               <TableCell>Result</TableCell>
               {showRangeSatisfaction && <TableCell width={50}>Range Satisfaction</TableCell>}
             </TableRow>

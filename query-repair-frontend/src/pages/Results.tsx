@@ -266,6 +266,9 @@ export default function ResultsPage() {
       <Typography variant="h6" gutterBottom>
         Top-k Repaired Queries
       </Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+        These are the top-k repaired queries that satisfy the constraint. Lower distance means fewer changes from your original query (closer match).
+      </Typography>
       <TopKTable
         title="Full Filtering (point estimates)"
         rows={artifacts?.satisfied_conditions_ff || []}
