@@ -6,6 +6,7 @@ import { SimilarityCell } from "./SimilarityCell";
 
 type TopKTableProps = {
   title: string;
+  tableCaption: string;
   rows: { row: Record<string, any> }[];
   showRangeSatisfaction: boolean;
   sqlQuery: string;
@@ -14,7 +15,7 @@ type TopKTableProps = {
 };
 
 export function TopKTable({
-  title, rows, showRangeSatisfaction, sqlQuery, bounds, maxSim
+  title,tableCaption, rows, showRangeSatisfaction, sqlQuery, bounds, maxSim
 }: TopKTableProps) {
   if (!rows?.length) {
     return (
@@ -28,6 +29,7 @@ export function TopKTable({
   return (
     <>
       <Typography variant="subtitle1" gutterBottom>{title}</Typography>
+      <Typography variant="subtitle2" gutterBottom>{tableCaption}</Typography>
       <TableContainer component={Paper} variant="outlined" sx={{ mb: 2 }}>
         <Table size="small">
           <TableHead>
