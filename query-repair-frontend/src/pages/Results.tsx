@@ -28,7 +28,8 @@ type ParsedResults = {
   original_metric?: string | null;
   original_pass?: boolean | null;
 };
-const API_BASE = "https://query-repair-fqepd3crc9h9ggdh.uksouth-01.azurewebsites.net";
+const API_BASE =
+  "https://query-repair-fqepd3crc9h9ggdh.uksouth-01.azurewebsites.net";
 
 export default function ResultsPage() {
   const location = useLocation();
@@ -53,18 +54,18 @@ export default function ResultsPage() {
       : "No Data";
 
   const originalPass =
-  originalPassRaw === undefined || originalPassRaw === null
-    ? "-"
-    : originalPassRaw
-    ? "Pass"
-    : "Fail";
+    originalPassRaw === undefined || originalPassRaw === null
+      ? "-"
+      : originalPassRaw
+      ? "Pass"
+      : "Fail";
 
   const originalPassColor =
-  originalPassRaw === true
-    ? "success.main"
-    : originalPassRaw === false
-    ? "error.main"
-    : "text.secondary";
+    originalPassRaw === true
+      ? "success.main"
+      : originalPassRaw === false
+      ? "error.main"
+      : "text.secondary";
 
   const {
     datasetName = "Unknown Dataset",
@@ -225,41 +226,40 @@ export default function ResultsPage() {
         </Paper>
 
         <Typography variant="h6" gutterBottom>
-  Arithmetic Expression & Original Query Result
-</Typography>
+          Arithmetic Expression & Original Query Result
+        </Typography>
 
-<Box sx={{ display: "flex", gap: 2, mb: 2 }}>
-  {/* Arithmetic Expression */}
-  <Paper variant="outlined" sx={{ flex: 2, p: 1 }}>
-    <Typography
-      variant="body2"
-      color="text.secondary"
-      sx={{ whiteSpace: "pre-wrap" }}
-    >
-      {constraintExpr || "--"}
-    </Typography>
-  </Paper>
+        <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
+          {/* Arithmetic Expression */}
+          <Paper variant="outlined" sx={{ flex: 2, p: 1 }}>
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ whiteSpace: "pre-wrap" }}
+            >
+              {constraintExpr || "--"}
+            </Typography>
+          </Paper>
 
-  {/* Metric + Pass/Fail */}
-  <Paper variant="outlined" sx={{  p: 1 }}>
-    <Box
-      sx={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        gap: 2,
-      }}
-    >
-      <Typography variant="body2" color="text.secondary">
-        Metric: <strong>{originalMetric}</strong>
-      </Typography>
-      <Typography variant="body2" sx={{ color: originalPassColor }}>
-        <strong>{originalPass}</strong>
-      </Typography>
-    </Box>
-  </Paper>
-</Box>
-
+          {/* Metric + Pass/Fail */}
+          <Paper variant="outlined" sx={{ p: 1 }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "flex-end",
+                gap: 2,
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">
+                Metric: <strong>{originalMetric}</strong>
+              </Typography>
+              <Typography variant="body2" sx={{ color: originalPassColor }}>
+                <strong>{originalPass}</strong>
+              </Typography>
+            </Box>
+          </Paper>
+        </Box>
       </Paper>
 
       {/* Top-k tables */}
@@ -267,7 +267,8 @@ export default function ResultsPage() {
         Top-k Repaired Queries
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        These are the top-k repaired queries that satisfy the constraint. Lower distance means fewer changes from your original query (closer match).
+        These are the top-k repaired queries that satisfy the constraint. Lower
+        distance means fewer changes from your original query (closer match).
       </Typography>
       <TopKTable
         title="Full Filtering (point estimates)"
